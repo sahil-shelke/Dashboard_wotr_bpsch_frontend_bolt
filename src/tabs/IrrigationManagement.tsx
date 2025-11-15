@@ -18,7 +18,7 @@ import { useState, useEffect, useMemo } from "react";
 // --------------------------------------------------
 // TYPES
 // --------------------------------------------------
-export type SeedSelectionRecord = {
+export type IrrigationManagementRecord = {
   farmer_name: string;
   farmer_mobile: string;
   crop_name_en: string;
@@ -29,54 +29,52 @@ export type SeedSelectionRecord = {
   district_name: string;
   crop_registration_id: string;
 
-  bio_fertilizer_1_name: string;
-  bio_fertilizer_1_quantity: string;
-  bio_fertilizer_1_unit: string;
+  crop_residue_tonnes_per_plot: string;
+  crop_residue_mulching: string;
+  irrigation_method: string;
+  plastic_mulching: string;
+  plastic_paper_micron: string;
+  plastic_mulching_date: string;
 
-  bio_fertilizer_2_name: string;
-  bio_fertilizer_2_quantity: string;
-  bio_fertilizer_2_unit: string;
-
-  bio_fertilizer_3_name: string;
-  bio_fertilizer_3_quantity: string;
-  bio_fertilizer_3_unit: string;
-
-  duration: string;
-
-  insecticide_1_name: string;
-  insecticide_1_quantity: string;
-  insecticide_1_unit: string;
-
-  insecticide_2_name: string;
-  insecticide_2_quantity: string;
-  insecticide_2_unit: string;
-
-  insecticide_3_name: string;
-  insecticide_3_quantity: string;
-  insecticide_3_unit: string;
-
-  seed_rate_kg_per_plot: string;
-  sowing_date: string;
-  sowing_method: string;
-  spacing_cm_squared: string;
-  variety_name: string;
-  transplanting_date: string;
-  nursery_sowing_date: string;
-  plantation_date: string;
-  bahar: string;
-  water_stress_date: string;
+  irrigation_data: string; // JSON string
+  irrigation_count: number;
 };
 
 // --------------------------------------------------
-// COMPLETION LOGIC (NO SCORE ANYMORE)
+// FIELDS FOR MODAL
 // --------------------------------------------------
-function getStatus(record: SeedSelectionRecord) {
+const schemaFields: (keyof IrrigationManagementRecord)[] = [
+  "farmer_name",
+  "farmer_mobile",
+  "crop_name_en",
+  "surveyor_name",
+  "surveyor_id",
+  "village_name",
+  "block_name",
+  "district_name",
+  "crop_registration_id",
+
+  "crop_residue_tonnes_per_plot",
+  "crop_residue_mulching",
+  "irrigation_method",
+  "plastic_mulching",
+  "plastic_paper_micron",
+  "plastic_mulching_date",
+
+  "irrigation_count",
+];
+
+// --------------------------------------------------
+// STATUS LOGIC
+// --------------------------------------------------
+function getStatus(record: IrrigationManagementRecord) {
   const fields = [
-    record.variety_name,
-    record.seed_rate_kg_per_plot,
-    record.sowing_date,
-    record.sowing_method,
-    record.spacing_cm_squared,
+    record.crop_residue_tonnes_per_plot,
+    record.crop_residue_mulching,
+    record.irrigation_method,
+    record.plastic_mulching,
+    record.plastic_paper_micron,
+    record.plastic_mulching_date,
   ];
 
   const filledCount = fields.filter(v => v && v.trim() !== "").length;
@@ -87,60 +85,54 @@ function getStatus(record: SeedSelectionRecord) {
 }
 
 // --------------------------------------------------
-// SMALL COMPONENTS FOR MODAL
+// PARSE IRRIGATION JSON SAFELY
 // --------------------------------------------------
-function Section({ title, children }: any) {
-  return (
-    <div>
-      <h3 className="text-sm font-semibold mb-2">{title}</h3>
-      <div className="space-y-2">{children}</div>
-    </div>
-  );
-}
-
-function Field({ name, value }: any) {
-  return (
-    <div className="border-b pb-2">
-      <div className="text-xs text-gray-500 uppercase tracking-wider">
-        {name.replace(/_/g, " ")}
-      </div>
-      <div className="text-sm">{value || "—"}</div>
-    </div>
-  );
+function parseIrrigationData(data: string) {
+  if (!data || typeof data !== "string") return [];
+  try {
+    const parsed = JSON.parse(data);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 // --------------------------------------------------
 // MAIN COMPONENT
 // --------------------------------------------------
-export default function SeedSelectionTable() {
-  const [data, setData] = useState<SeedSelectionRecord[]>([]);
+export default function IrrigationManagementTable() {
+  const [data, setData] = useState<IrrigationManagementRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedRecord, setSelectedRecord] = useState<SeedSelectionRecord | null>(null);
+  const [selectedRecord, setSelectedRecord] =
+    useState<IrrigationManagementRecord | null>(null);
 
   const [completionFilter, setCompletionFilter] = useState<
     "all" | "filled" | "partial" | "not_filled"
   >("all");
 
-  const columnHelper = createColumnHelper<SeedSelectionRecord>();
+  const columnHelper = createColumnHelper<IrrigationManagementRecord>();
 
   // --------------------------------------------------
-  // COLUMNS (NO STATUS COLUMN)
+  // TABLE COLUMNS
   // --------------------------------------------------
   const columns = [
-    columnHelper.accessor("farmer_name", { header: "Farmer Name" }),
+    // Hidden but searchable
+    columnHelper.accessor("farmer_name", { header: "Farmer" }),
     columnHelper.accessor("crop_name_en", { header: "Crop" }),
-    columnHelper.accessor("surveyor_name", { header: "Surveyor Name" }),
+    columnHelper.accessor("surveyor_name", { header: "Surveyor" }),
     columnHelper.accessor("village_name", { header: "Village" }),
     columnHelper.accessor("block_name", { header: "Block" }),
     columnHelper.accessor("district_name", { header: "District" }),
+    columnHelper.accessor("crop_registration_id", { header: "Reg ID" }),
 
+    // Visible
     columnHelper.accessor("surveyor_id", { header: "Surveyor ID" }),
     columnHelper.accessor("farmer_mobile", { header: "Mobile" }),
-    columnHelper.accessor("variety_name", { header: "Variety" }),
-    columnHelper.accessor("sowing_date", { header: "Sowing Date" }),
-    columnHelper.accessor("sowing_method", { header: "Method" }),
-    columnHelper.accessor("seed_rate_kg_per_plot", { header: "Seed Rate (kg)" }),
+    columnHelper.accessor("irrigation_method", { header: "Irrigation" }),
+    columnHelper.accessor("irrigation_count", { header: "Count" }),
+    columnHelper.accessor("plastic_mulching", { header: "Mulching" }),
 
+    // View button
     columnHelper.display({
       id: "actions",
       header: "Actions",
@@ -156,12 +148,14 @@ export default function SeedSelectionTable() {
   ];
 
   // --------------------------------------------------
-  // FETCH
+  // FETCH DATA
   // --------------------------------------------------
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("http://localhost:5000/api/farm-management/seed_selection");
+        const res = await fetch(
+          "http://localhost:5000/api/farm-management/irrigation"
+        );
         const json = await res.json();
         setData(json);
       } finally {
@@ -172,7 +166,7 @@ export default function SeedSelectionTable() {
   }, []);
 
   // --------------------------------------------------
-  // TABLE STATE
+  // TABLE STATES
   // --------------------------------------------------
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
@@ -186,10 +180,11 @@ export default function SeedSelectionTable() {
     village_name: false,
     block_name: false,
     district_name: false,
+    crop_registration_id: false,
   });
 
   // --------------------------------------------------
-  // STATUS FILTER APPLIED
+  // APPLY STATUS FILTER
   // --------------------------------------------------
   const filteredByStatus = useMemo(() => {
     return data.filter(record =>
@@ -197,11 +192,13 @@ export default function SeedSelectionTable() {
     );
   }, [data, completionFilter]);
 
+  // --------------------------------------------------
+  // TABLE INIT
+  // --------------------------------------------------
   const table = useReactTable({
     data: filteredByStatus,
     columns,
     state: { sorting, globalFilter, columnFilters, columnVisibility, pagination },
-
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
     onColumnFiltersChange: setColumnFilters,
@@ -216,11 +213,15 @@ export default function SeedSelectionTable() {
 
   if (loading) return <div className="p-4">Loading...</div>;
 
+  // --------------------------------------------------
+  // UI
+  // --------------------------------------------------
   return (
     <>
       {/* CONTROLS */}
       <div className="flex flex-wrap gap-4 items-center justify-between mb-4">
 
+        {/* Search */}
         <input
           placeholder="Search..."
           className="border px-3 py-2 rounded-md w-60"
@@ -228,6 +229,7 @@ export default function SeedSelectionTable() {
           onChange={e => setGlobalFilter(e.target.value)}
         />
 
+        {/* Status Filter */}
         <select
           className="border px-3 py-2 rounded-md"
           value={completionFilter}
@@ -254,6 +256,7 @@ export default function SeedSelectionTable() {
           </span>
         </div>
 
+        {/* Count */}
         <span className="text-gray-700 text-sm font-medium">
           Showing {table.getFilteredRowModel().rows.length} of {data.length} records
         </span>
@@ -262,14 +265,14 @@ export default function SeedSelectionTable() {
         <details className="border px-3 py-2 rounded-md cursor-pointer">
           <summary>Columns</summary>
           <div className="mt-2 flex flex-col gap-1">
-            {table.getAllLeafColumns().map(col => (
-              <label key={col.id} className="flex gap-2">
+            {table.getAllLeafColumns().map(column => (
+              <label key={column.id} className="flex gap-2">
                 <input
                   type="checkbox"
-                  checked={col.getIsVisible()}
-                  onChange={col.getToggleVisibilityHandler()}
+                  checked={column.getIsVisible()}
+                  onChange={column.getToggleVisibilityHandler()}
                 />
-                {col.id}
+                {column.id}
               </label>
             ))}
           </div>
@@ -279,13 +282,13 @@ export default function SeedSelectionTable() {
       {/* TABLE */}
       <div className="w-full overflow-auto border rounded-lg">
         <table className="w-full border-collapse text-sm">
-          <thead className="bg-gray-100 sticky top-0 z-10">
+          <thead className="bg-gray-100 sticky top-0 z-10 text-left">
             {table.getHeaderGroups().map(hg => (
               <tr key={hg.id}>
                 {hg.headers.map(header => (
                   <th
                     key={header.id}
-                    className="p-3 font-semibold border-b border-gray-300 cursor-pointer"
+                    className="p-3 font-semibold border-b border-gray-300 tracking-wide cursor-pointer bg-gray-50"
                     onClick={header.column.getToggleSortingHandler()}
                   >
                     {flexRender(header.column.columnDef.header, header.getContext())}
@@ -301,7 +304,9 @@ export default function SeedSelectionTable() {
             {table.getRowModel().rows.map((row, i) => (
               <tr
                 key={row.id}
-                className="border-b hover:bg-blue-50 transition-colors"
+                className={`border-b ${
+                  i % 2 === 0 ? "bg-white" : "bg-gray-50"
+                } hover:bg-blue-50 transition-colors`}
               >
                 {row.getVisibleCells().map(cell => (
                   <td key={cell.id} className="p-3 border-gray-200">
@@ -340,13 +345,13 @@ export default function SeedSelectionTable() {
       {/* MODAL */}
       {selectedRecord && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white w-[490px] max-h-[90vh] rounded-lg shadow-xl p-5 overflow-y-auto">
+          <div className="bg-white w-[480px] max-h-[90vh] rounded-lg shadow-xl p-5 overflow-y-auto">
 
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-3">
-                <h2 className="text-lg font-semibold">Seed Selection Details</h2>
+                <h2 className="text-lg font-semibold">Irrigation Management Details</h2>
 
-                {/* Status only (no percentage) */}
+                {/* Status badge only */}
                 <span
                   className={`
                     text-xs px-2 py-1 rounded
@@ -371,82 +376,52 @@ export default function SeedSelectionTable() {
               </button>
             </div>
 
-            <div className="space-y-6">
-
-              {/* Farmer & Location */}
-              <Section title="Farmer & Location">
-                {[
-                  "farmer_name",
-                  "farmer_mobile",
-                  "village_name",
-                  "block_name",
-                  "district_name",
-                ].map(key => (
-                  <Field key={key} name={key} value={selectedRecord[key as keyof SeedSelectionRecord]} />
-                ))}
-              </Section>
-
-              {/* Crop */}
-              <Section title="Crop Details">
-                {[
-                  "crop_name_en",
-                  "variety_name",
-                  "crop_registration_id",
-                  "bahar",
-                ].map(key => (
-                  <Field key={key} name={key} value={selectedRecord[key as keyof SeedSelectionRecord]} />
-                ))}
-              </Section>
-
-              {/* Sowing */}
-              <Section title="Sowing Details">
-                {[
-                  "sowing_date",
-                  "sowing_method",
-                  "seed_rate_kg_per_plot",
-                  "spacing_cm_squared",
-                  "transplanting_date",
-                  "nursery_sowing_date",
-                  "plantation_date",
-                  "water_stress_date",
-                ].map(key => (
-                  <Field key={key} name={key} value={selectedRecord[key as keyof SeedSelectionRecord]} />
-                ))}
-              </Section>
-
-              {/* Bio Fertilizers */}
-              <Section title="Bio Fertilizers">
-                {[1, 2, 3].map(n => (
-                  <div key={n} className="border p-2 rounded-md space-y-1">
-                    <div className="font-medium text-sm mb-1">Bio Fertilizer {n}</div>
-                    {[
-                      `bio_fertilizer_${n}_name`,
-                      `bio_fertilizer_${n}_quantity`,
-                      `bio_fertilizer_${n}_unit`,
-                    ].map(key => (
-                      <Field key={key} name={key} value={(selectedRecord as any)[key]} />
-                    ))}
+            <div className="space-y-3">
+              {schemaFields.map(key => (
+                <div key={key} className="border-b pb-2">
+                  <div className="text-xs text-gray-500 uppercase tracking-wider">
+                    {key.replace(/_/g, " ")}
                   </div>
-                ))}
-              </Section>
-
-              {/* Insecticides */}
-              <Section title="Insecticides">
-                {[1, 2, 3].map(n => (
-                  <div key={n} className="border p-2 rounded-md space-y-1">
-                    <div className="font-medium text-sm mb-1">Insecticide {n}</div>
-                    {[
-                      `insecticide_${n}_name`,
-                      `insecticide_${n}_quantity`,
-                      `insecticide_${n}_unit`,
-                    ].map(key => (
-                      <Field key={key} name={key} value={(selectedRecord as any)[key]} />
-                    ))}
+                  <div className="text-sm">
+                    {selectedRecord[key] || <span className="text-gray-400">—</span>}
                   </div>
-                ))}
-              </Section>
+                </div>
+              ))}
 
+              {/* Irrigation Data Table */}
+              <div className="mt-4">
+                <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">
+                  Irrigation Data
+                </div>
+
+                <table className="w-full text-sm border">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="border p-2">Date</th>
+                      <th className="border p-2">Hours</th>
+                      <th className="border p-2">Minutes</th>
+                      <th className="border p-2">Count</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {parseIrrigationData(selectedRecord.irrigation_data).map(
+                      (item: any, idx: number) => (
+                        <tr key={idx}>
+                          <td className="border p-2">{item.date || "—"}</td>
+                          <td className="border p-2">{item.hours || "—"}</td>
+                          <td className="border p-2">{item.minutes || "—"}</td>
+                          <td className="border p-2">
+                            {item.irrigation_count || "—"}
+                          </td>
+                        </tr>
+                      )
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
+
           </div>
         </div>
       )}
