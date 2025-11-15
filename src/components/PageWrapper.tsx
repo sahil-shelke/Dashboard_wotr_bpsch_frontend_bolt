@@ -4,17 +4,25 @@ interface PageWrapperProps {
   title: string;
   description?: string;
   children: ReactNode;
+  action?: ReactNode;
 }
 
-export function PageWrapper({ title, description, children }: PageWrapperProps) {
+export function PageWrapper({ title, description, children, action }: PageWrapperProps) {
   return (
-    <div className="w-full min-h-screen bg-[#F5E9D4]/20">
-      <div className="w-full max-w-none p-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-[#2E3A3F] mb-2">{title}</h1>
-          {description && <p className="text-[#2E3A3F]/70">{description}</p>}
+    <div className="w-full min-h-screen bg-gradient-to-br from-green-50/30 via-white to-amber-50/20">
+      <div className="w-full max-w-none p-6 space-y-6">
+        <div className="flex items-start justify-between gap-4 animate-slide-up">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground tracking-tight">{title}</h1>
+            {description && (
+              <p className="text-muted-foreground mt-2 text-base max-w-3xl">{description}</p>
+            )}
+          </div>
+          {action && <div className="flex-shrink-0">{action}</div>}
         </div>
-        {children}
+        <div className="animate-slide-up" style={{ animationDelay: "0.1s" }}>
+          {children}
+        </div>
       </div>
     </div>
   );

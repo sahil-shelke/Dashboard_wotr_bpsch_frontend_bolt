@@ -78,18 +78,18 @@ const data = {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
-    <Sidebar collapsible="icon" {...props} className="border-r border-[#6D4C41]/10">
-      <SidebarHeader className="border-b border-[#6D4C41]/10">
+    <Sidebar collapsible="icon" {...props} className="border-r shadow-sm">
+      <SidebarHeader className="border-b bg-gradient-primary">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <a href="/" className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#1B5E20] text-white">
-                  <Sprout className="h-5 w-5" />
+              <a href="/" className="flex items-center gap-3 hover:bg-white/10 transition-colors duration-200">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 text-white backdrop-blur-sm shadow-lg">
+                  <Sprout className="h-6 w-6" />
                 </div>
                 <div className="flex flex-col gap-0.5">
-                  <span className="font-semibold text-[#2E3A3F]">AgriAdvisory</span>
-                  <span className="text-xs text-[#2E3A3F]/70">Farm Management System</span>
+                  <span className="font-bold text-white text-lg">AgriAdvisory</span>
+                  <span className="text-xs text-white/80">Farm Management</span>
                 </div>
               </a>
             </SidebarMenuButton>
@@ -100,9 +100,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <a href="/" className="flex items-center gap-3 hover:bg-[#7CB342]/10">
-                <LayoutDashboard className="h-5 w-5" />
-                <span>Dashboard</span>
+              <a href="/" className="flex items-center gap-3 hover:bg-primary/10 transition-all duration-200 rounded-lg">
+                <div className="p-1.5 rounded-lg bg-primary/10">
+                  <LayoutDashboard className="h-4 w-4 text-primary" />
+                </div>
+                <span className="font-medium">Dashboard</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -112,16 +114,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           {data.navSecondary.map((item) => (
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton asChild>
-                <a href={item.url} className="flex items-center gap-3 hover:bg-[#7CB342]/10">
-                  <item.icon className="h-5 w-5" />
-                  <span>{item.title}</span>
+                <a href={item.url} className="flex items-center gap-3 hover:bg-accent/10 transition-all duration-200 rounded-lg">
+                  <div className="p-1.5 rounded-lg bg-accent/10">
+                    <item.icon className="h-4 w-4 text-accent" />
+                  </div>
+                  <span className="font-medium">{item.title}</span>
                 </a>
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
       </SidebarContent>
-      <SidebarFooter className="border-t border-[#6D4C41]/10">
+      <SidebarFooter className="border-t bg-muted/30">
         <NavUser user={data.user} />
       </SidebarFooter>
       <SidebarRail />

@@ -14,6 +14,7 @@ import {
 } from "@tanstack/react-table";
 
 import { useState, useEffect, useMemo } from "react";
+import { Search, Eye, Tractor, MapPin, ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, Clock, X } from "lucide-react";
 
 export type LandPreparationRecord = {
   farmer_name: string;
@@ -45,9 +46,6 @@ const schemaFields: (keyof LandPreparationRecord)[] = [
   "harrow_date",
 ];
 
-// -----------------------------
-// STATUS
-// -----------------------------
 function getStatus(record: LandPreparationRecord) {
   const fields = [
     record.fym_date,
@@ -75,9 +73,6 @@ export default function LandPreparationTable() {
 
   const columnHelper = createColumnHelper<LandPreparationRecord>();
 
-  // -----------------------------
-  // COLUMNS
-  // -----------------------------
   const columns = [
     columnHelper.accessor("surveyor_id", { header: "Surveyor ID" }),
     columnHelper.accessor("farmer_mobile", { header: "Farmer Mobile" }),
@@ -87,22 +82,40 @@ export default function LandPreparationTable() {
     columnHelper.accessor("harrow_date", { header: "Harrow Date" }),
 
     columnHelper.display({
+      id: "status",
+      header: "Status",
+      cell: ({ row }) => {
+        const status = getStatus(row.original);
+        return (
+          <span className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 w-fit ${
+            status === "filled"
+              ? "bg-green-100 text-green-700"
+              : status === "partial"
+              ? "bg-amber-100 text-amber-700"
+              : "bg-red-100 text-red-700"
+          }`}>
+            {status === "filled" ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+            {status === "filled" ? "Complete" : status === "partial" ? "In Progress" : "Not Started"}
+          </span>
+        );
+      },
+    }),
+
+    columnHelper.display({
       id: "actions",
       header: "Actions",
       cell: ({ row }) => (
         <button
-          className="px-3 py-1 text-sm rounded-lg bg-green-700 text-white hover:bg-green-800"
+          className="px-4 py-2 rounded-lg text-sm bg-primary text-primary-foreground hover:bg-primary/90 font-medium shadow-sm transition-all duration-200"
           onClick={() => setSelectedRecord(row.original)}
         >
+          <Eye className="w-4 h-4 inline mr-1.5" />
           View
         </button>
       ),
     }),
   ];
 
-  // -----------------------------
-  // FETCH DATA
-  // -----------------------------
   useEffect(() => {
     async function load() {
       try {
@@ -116,9 +129,6 @@ export default function LandPreparationTable() {
     load();
   }, []);
 
-  // -----------------------------
-  // TABLE STATE
-  // -----------------------------
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState<string>("");
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -133,9 +143,6 @@ export default function LandPreparationTable() {
     district_name: false,
   });
 
-  // -----------------------------
-  // DEPENDENT DROPDOWNS
-  // -----------------------------
   const uniqueDistricts = [...new Set(data.map(r => r.district_name))].filter(Boolean).sort();
 
   const uniqueBlocks = [...new Set(
@@ -151,9 +158,6 @@ export default function LandPreparationTable() {
       .map(r => r.village_name)
   )].filter(Boolean).sort();
 
-  // -----------------------------
-  // FINAL FILTERING
-  // -----------------------------
   const finalData = useMemo(() => {
     const g = globalFilter.trim().toLowerCase();
 
@@ -168,9 +172,6 @@ export default function LandPreparationTable() {
     });
   }, [data, completionFilter, districtFilter, blockFilter, villageFilter, globalFilter]);
 
-  // -----------------------------
-  // TABLE INIT
-  // -----------------------------
   const table = useReactTable({
     data: finalData,
     columns,
@@ -186,43 +187,86 @@ export default function LandPreparationTable() {
     getPaginationRowModel: getPaginationRowModel(),
   });
 
-  if (loading) return <div className="p-6">Loading...</div>;
+  if (loading) {
+    return (
+      <div className="w-full min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50/30 via-white to-amber-50/20">
+        <div className="text-center animate-fade-in">
+          <Tractor className="w-12 h-12 text-primary animate-pulse mx-auto mb-4" />
+          <div className="text-xl font-medium text-foreground">Loading land preparation data...</div>
+        </div>
+      </div>
+    );
+  }
 
-  // -----------------------------
-  // UI
-  // -----------------------------
+  const statusCounts = {
+    filled: data.filter(r => getStatus(r) === "filled").length,
+    partial: data.filter(r => getStatus(r) === "partial").length,
+    notFilled: data.filter(r => getStatus(r) === "not_filled").length,
+  };
+
   return (
-    <div className="w-full min-h-screen bg-[#F5F3E7]">
+    <div className="w-full min-h-screen bg-gradient-to-br from-green-50/30 via-white to-amber-50/20">
+      <div className="w-full p-6 space-y-6">
 
-      <div className="w-full p-4">
-
-        {/* HEADER */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-[#2E3A3F]">Land Preparation Records</h1>
-          <p className="text-[#2E3A3F]/70">Manage and monitor land preparation activities</p>
+        <div className="flex items-start justify-between gap-4 animate-slide-up">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground tracking-tight">Land Preparation Records</h1>
+            <p className="text-muted-foreground mt-2 text-base">Monitor and manage land preparation activities</p>
+          </div>
         </div>
 
-        {/* FILTER PANEL */}
-        <div className="bg-white border border-gray-300 rounded-lg p-4 shadow-sm mb-6 w-full">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-slide-up" style={{ animationDelay: "0.1s" }}>
+          <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-5 shadow-lg text-white">
+            <div className="flex items-center justify-between mb-2">
+              <CheckCircle2 className="w-8 h-8 opacity-80" />
+              <span className="text-3xl font-bold">{statusCounts.filled}</span>
+            </div>
+            <div className="font-semibold">Completed</div>
+            <div className="text-xs opacity-80 mt-1">All fields filled</div>
+          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-2xl p-5 shadow-lg text-white">
+            <div className="flex items-center justify-between mb-2">
+              <Clock className="w-8 h-8 opacity-80" />
+              <span className="text-3xl font-bold">{statusCounts.partial}</span>
+            </div>
+            <div className="font-semibold">In Progress</div>
+            <div className="text-xs opacity-80 mt-1">Partially completed</div>
+          </div>
 
-            {/* SEARCH */}
-            <div className="flex flex-col">
-              <label className="text-sm font-medium">Search</label>
+          <div className="bg-gradient-to-br from-red-500 to-pink-500 rounded-2xl p-5 shadow-lg text-white">
+            <div className="flex items-center justify-between mb-2">
+              <AlertCircle className="w-8 h-8 opacity-80" />
+              <span className="text-3xl font-bold">{statusCounts.notFilled}</span>
+            </div>
+            <div className="font-semibold">Not Started</div>
+            <div className="text-xs opacity-80 mt-1">No data entered</div>
+          </div>
+        </div>
+
+        <div className="bg-card rounded-2xl border shadow-lg p-6 animate-slide-up" style={{ animationDelay: "0.2s" }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <Search className="w-4 h-4" />
+                Search
+              </label>
               <input
-                className="border rounded px-3 h-10"
+                className="h-11 rounded-lg border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all duration-200"
                 placeholder="Search all fields..."
                 value={globalFilter}
                 onChange={e => setGlobalFilter(e.target.value)}
               />
             </div>
 
-            {/* DISTRICT */}
-            <div className="flex flex-col">
-              <label className="text-sm font-medium">District</label>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <MapPin className="w-4 h-4" />
+                District
+              </label>
               <select
-                className="border rounded px-3 h-10"
+                className="h-11 rounded-lg border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all duration-200"
                 value={districtFilter}
                 onChange={e => {
                   setDistrictFilter(e.target.value);
@@ -237,11 +281,10 @@ export default function LandPreparationTable() {
               </select>
             </div>
 
-            {/* BLOCK */}
-            <div className="flex flex-col">
-              <label className="text-sm font-medium">Block</label>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold text-foreground">Block</label>
               <select
-                className="border rounded px-3 h-10"
+                className="h-11 rounded-lg border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 value={blockFilter}
                 disabled={!districtFilter}
                 onChange={e => {
@@ -256,11 +299,10 @@ export default function LandPreparationTable() {
               </select>
             </div>
 
-            {/* VILLAGE */}
-            <div className="flex flex-col">
-              <label className="text-sm font-medium">Village</label>
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold text-foreground">Village</label>
               <select
-                className="border rounded px-3 h-10"
+                className="h-11 rounded-lg border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 value={villageFilter}
                 disabled={!blockFilter}
                 onChange={e => setVillageFilter(e.target.value)}
@@ -271,54 +313,43 @@ export default function LandPreparationTable() {
                 ))}
               </select>
             </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold text-foreground">Status</label>
+              <select
+                className="h-11 rounded-lg border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all duration-200"
+                value={completionFilter}
+                onChange={e => setCompletionFilter(e.target.value as any)}
+              >
+                <option value="all">All Records</option>
+                <option value="filled">Completed</option>
+                <option value="partial">In Progress</option>
+                <option value="not_filled">Not Started</option>
+              </select>
+            </div>
           </div>
 
-          {/* STATUS + COUNT */}
-          <div className="mt-4 flex flex-wrap gap-3">
-            <select
-              className="border rounded px-3 h-10"
-              value={completionFilter}
-              onChange={e => setCompletionFilter(e.target.value as any)}
-            >
-              <option value="all">All Records</option>
-              <option value="filled">Filled</option>
-              <option value="partial">Partial</option>
-              <option value="not_filled">Not Filled</option>
-            </select>
-
-            <span className="px-3 py-1 rounded bg-green-100 text-green-700 text-sm">
-              Filled: {data.filter(r => getStatus(r) === "filled").length}
-            </span>
-            <span className="px-3 py-1 rounded bg-yellow-100 text-yellow-700 text-sm">
-              Partial: {data.filter(r => getStatus(r) === "partial").length}
-            </span>
-            <span className="px-3 py-1 rounded bg-red-100 text-red-700 text-sm">
-              Not Filled: {data.filter(r => getStatus(r) === "not_filled").length}
-            </span>
-
-            <span className="ml-auto text-sm text-gray-600">
-              Showing {finalData.length} of {data.length} records
-            </span>
+          <div className="mt-4 text-sm text-muted-foreground">
+            Showing <span className="font-semibold text-foreground">{finalData.length}</span> of <span className="font-semibold text-foreground">{data.length}</span> records
           </div>
-
         </div>
 
-        {/* TABLE */}
-        <div className="w-full overflow-auto border rounded-lg bg-white shadow">
-
+        <div className="w-full overflow-auto rounded-2xl border bg-card shadow-lg animate-slide-up" style={{ animationDelay: "0.3s" }}>
           <table className="w-full text-sm">
-            <thead className="bg-gray-100 sticky top-0 z-10 border-b">
+            <thead className="bg-muted/50 sticky top-0 z-10 border-b-2">
               {table.getHeaderGroups().map(hg => (
                 <tr key={hg.id}>
                   {hg.headers.map(header => (
                     <th
                       key={header.id}
-                      className="p-3 font-semibold text-left cursor-pointer"
+                      className="p-4 text-left font-semibold cursor-pointer hover:bg-muted/70 transition-colors duration-200"
                       onClick={header.column.getToggleSortingHandler()}
                     >
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                      {header.column.getIsSorted() === "asc" && " ▲"}
-                      {header.column.getIsSorted() === "desc" && " ▼"}
+                      <div className="flex items-center gap-2">
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        {header.column.getIsSorted() === "asc" && <span className="text-primary">↑</span>}
+                        {header.column.getIsSorted() === "desc" && <span className="text-primary">↓</span>}
+                      </div>
                     </th>
                   ))}
                 </tr>
@@ -326,13 +357,13 @@ export default function LandPreparationTable() {
             </thead>
 
             <tbody>
-              {table.getRowModel().rows.map((row, i) => (
+              {table.getRowModel().rows.map((row) => (
                 <tr
                   key={row.id}
-                  className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                  className="border-b hover:bg-accent/5 transition-colors duration-200"
                 >
                   {row.getVisibleCells().map(cell => (
-                    <td key={cell.id} className="p-3 border-b">
+                    <td key={cell.id} className="p-4">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   ))}
@@ -340,59 +371,66 @@ export default function LandPreparationTable() {
               ))}
             </tbody>
           </table>
-
         </div>
 
-        {/* PAGINATION */}
-        <div className="flex gap-3 items-center mt-4">
+        <div className="flex items-center justify-between gap-4 animate-slide-up" style={{ animationDelay: "0.4s" }}>
           <button
-            className="border px-3 py-2 rounded disabled:opacity-50"
+            className="px-4 py-2 border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-accent/5 transition-all duration-200 font-medium flex items-center gap-2"
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
           >
-            Prev
+            <ChevronLeft className="w-4 h-4" />
+            Previous
           </button>
 
           <span className="text-sm font-medium">
-            Page {pagination.pageIndex + 1} / {table.getPageCount()}
+            Page <span className="font-bold">{pagination.pageIndex + 1}</span> / <span className="font-bold">{table.getPageCount()}</span>
           </span>
 
           <button
-            className="border px-3 py-2 rounded disabled:opacity-50"
+            className="px-4 py-2 border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-accent/5 transition-all duration-200 font-medium flex items-center gap-2"
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
           >
             Next
+            <ChevronRight className="w-4 h-4" />
           </button>
         </div>
 
-        {/* MODAL */}
         {selectedRecord && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-
-            <div className="bg-white w-[450px] max-h-[80vh] rounded-xl shadow-xl p-6 overflow-y-auto">
-
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-bold">Land Preparation Details</h2>
-                <button className="text-2xl" onClick={() => setSelectedRecord(null)}>×</button>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+            <div className="bg-card w-full max-w-2xl max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
+              <div className="sticky top-0 bg-gradient-primary p-6 flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                    <Tractor className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Land Preparation Details</h2>
+                    <p className="text-white/80 text-sm">Complete record information</p>
+                  </div>
+                </div>
+                <button
+                  className="w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 transition-colors duration-200 flex items-center justify-center"
+                  onClick={() => setSelectedRecord(null)}
+                >
+                  <X className="w-5 h-5 text-white" />
+                </button>
               </div>
 
-              <div className="space-y-4">
+              <div className="p-6 space-y-4 overflow-y-auto" style={{ maxHeight: "calc(90vh - 100px)" }}>
                 {schemaFields.map(key => (
-                  <div key={key} className="border-b pb-2">
-                    <div className="text-xs uppercase text-gray-600">{key.replace(/_/g, " ")}</div>
-                    <div className="text-sm">{selectedRecord[key] || "—"}</div>
+                  <div key={key} className="flex items-center justify-between py-3 border-b">
+                    <div className="text-sm font-semibold text-muted-foreground uppercase">{key.replace(/_/g, " ")}</div>
+                    <div className="text-sm font-medium text-foreground">{selectedRecord[key] || "—"}</div>
                   </div>
                 ))}
               </div>
-
             </div>
-
           </div>
         )}
 
       </div>
-
     </div>
   );
 }
