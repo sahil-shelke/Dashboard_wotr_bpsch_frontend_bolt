@@ -15,9 +15,6 @@ import {
 
 import { useState, useEffect, useMemo } from "react";
 
-// --------------------------------------------------
-// TYPES
-// --------------------------------------------------
 export type LandPreparationRecord = {
   farmer_name: string;
   farmer_mobile: string;
@@ -33,7 +30,6 @@ export type LandPreparationRecord = {
   harrow_date: string;
 };
 
-// Allowed fields for modal display
 const schemaFields: (keyof LandPreparationRecord)[] = [
   "farmer_name",
   "farmer_mobile",
@@ -49,9 +45,9 @@ const schemaFields: (keyof LandPreparationRecord)[] = [
   "harrow_date",
 ];
 
-// --------------------------------------------------
-// STATUS LOGIC
-// --------------------------------------------------
+// -----------------------------
+// STATUS
+// -----------------------------
 function getStatus(record: LandPreparationRecord) {
   const fields = [
     record.fym_date,
@@ -59,7 +55,6 @@ function getStatus(record: LandPreparationRecord) {
     record.ploughing_date,
     record.harrow_date,
   ];
-
   const filledCount = fields.filter(v => v && v.trim() !== "").length;
 
   if (filledCount === 0) return "not_filled";
@@ -67,33 +62,23 @@ function getStatus(record: LandPreparationRecord) {
   return "partial";
 }
 
-// --------------------------------------------------
-// MAIN COMPONENT
-// --------------------------------------------------
 export default function LandPreparationTable() {
   const [data, setData] = useState<LandPreparationRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRecord, setSelectedRecord] = useState<LandPreparationRecord | null>(null);
 
-  const [completionFilter, setCompletionFilter] = useState<
-    "all" | "filled" | "partial" | "not_filled"
-  >("all");
+  const [completionFilter, setCompletionFilter] = useState<"all" | "filled" | "partial" | "not_filled">("all");
+
+  const [districtFilter, setDistrictFilter] = useState("");
+  const [blockFilter, setBlockFilter] = useState("");
+  const [villageFilter, setVillageFilter] = useState("");
 
   const columnHelper = createColumnHelper<LandPreparationRecord>();
 
-  // --------------------------------------------------
-  // COLUMNS (all included, only minimal visible)
-  // --------------------------------------------------
+  // -----------------------------
+  // COLUMNS
+  // -----------------------------
   const columns = [
-    // Hidden but searchable
-    columnHelper.accessor("farmer_name", { header: "Farmer Name" }),
-    columnHelper.accessor("crop_name_en", { header: "Crop" }),
-    columnHelper.accessor("surveyor_name", { header: "Surveyor Name" }),
-    columnHelper.accessor("village_name", { header: "Village" }),
-    columnHelper.accessor("block_name", { header: "Block" }),
-    columnHelper.accessor("district_name", { header: "District" }),
-
-    // Visible minimal fields
     columnHelper.accessor("surveyor_id", { header: "Surveyor ID" }),
     columnHelper.accessor("farmer_mobile", { header: "Farmer Mobile" }),
     columnHelper.accessor("fym_date", { header: "FYM Date" }),
@@ -101,13 +86,12 @@ export default function LandPreparationTable() {
     columnHelper.accessor("ploughing_date", { header: "Ploughing Date" }),
     columnHelper.accessor("harrow_date", { header: "Harrow Date" }),
 
-    // View Button
     columnHelper.display({
       id: "actions",
       header: "Actions",
       cell: ({ row }) => (
         <button
-          className="px-3 py-1 text-sm rounded bg-blue-600 text-white hover:bg-blue-700"
+          className="px-3 py-1 text-sm rounded-lg bg-green-700 text-white hover:bg-green-800"
           onClick={() => setSelectedRecord(row.original)}
         >
           View
@@ -116,9 +100,9 @@ export default function LandPreparationTable() {
     }),
   ];
 
-  // --------------------------------------------------
+  // -----------------------------
   // FETCH DATA
-  // --------------------------------------------------
+  // -----------------------------
   useEffect(() => {
     async function load() {
       try {
@@ -132,13 +116,13 @@ export default function LandPreparationTable() {
     load();
   }, []);
 
-  // --------------------------------------------------
+  // -----------------------------
   // TABLE STATE
-  // --------------------------------------------------
+  // -----------------------------
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState<string>("");
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 12 });
 
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
     farmer_name: false,
@@ -149,200 +133,266 @@ export default function LandPreparationTable() {
     district_name: false,
   });
 
-  // --------------------------------------------------
-  // APPLY STATUS FILTER
-  // --------------------------------------------------
-  const filteredByStatus = useMemo(() => {
-    return data.filter(record =>
-      completionFilter === "all" ? true : getStatus(record) === completionFilter
-    );
-  }, [data, completionFilter]);
+  // -----------------------------
+  // DEPENDENT DROPDOWNS
+  // -----------------------------
+  const uniqueDistricts = [...new Set(data.map(r => r.district_name))].filter(Boolean).sort();
 
-  // --------------------------------------------------
+  const uniqueBlocks = [...new Set(
+    data
+      .filter(r => (districtFilter ? r.district_name === districtFilter : true))
+      .map(r => r.block_name)
+  )].filter(Boolean).sort();
+
+  const uniqueVillages = [...new Set(
+    data
+      .filter(r => (districtFilter ? r.district_name === districtFilter : true))
+      .filter(r => (blockFilter ? r.block_name === blockFilter : true))
+      .map(r => r.village_name)
+  )].filter(Boolean).sort();
+
+  // -----------------------------
+  // FINAL FILTERING
+  // -----------------------------
+  const finalData = useMemo(() => {
+    const g = globalFilter.trim().toLowerCase();
+
+    return data.filter(record => {
+      if (completionFilter !== "all" && getStatus(record) !== completionFilter) return false;
+      if (districtFilter && record.district_name !== districtFilter) return false;
+      if (blockFilter && record.block_name !== blockFilter) return false;
+      if (villageFilter && record.village_name !== villageFilter) return false;
+      if (g && !JSON.stringify(record).toLowerCase().includes(g)) return false;
+
+      return true;
+    });
+  }, [data, completionFilter, districtFilter, blockFilter, villageFilter, globalFilter]);
+
+  // -----------------------------
   // TABLE INIT
-  // --------------------------------------------------
+  // -----------------------------
   const table = useReactTable({
-    data: filteredByStatus,
+    data: finalData,
     columns,
     state: { sorting, globalFilter, columnFilters, columnVisibility, pagination },
-
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     onPaginationChange: setPagination,
-
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
   });
 
-  if (loading) return <div className="p-4">Loading...</div>;
+  if (loading) return <div className="p-6">Loading...</div>;
 
+  // -----------------------------
+  // UI
+  // -----------------------------
   return (
-    <>
-      {/* ---------------------------------------------------
-         SEARCH + STATUS FILTER + BADGES + COUNT + COLUMN TOGGLE
-      --------------------------------------------------- */}
-      <div className="flex flex-wrap gap-4 items-center justify-between mb-4">
+    <div className="w-full min-h-screen bg-[#F5F3E7]">
 
-        {/* Global Search */}
-        <input
-          placeholder="Search..."
-          className="border px-3 py-2 rounded-md w-60"
-          value={globalFilter}
-          onChange={e => setGlobalFilter(e.target.value)}
-        />
+      <div className="w-full p-4">
 
-        {/* Status Filter */}
-        <select
-          className="border px-3 py-2 rounded-md"
-          value={completionFilter}
-          onChange={e => setCompletionFilter(e.target.value as any)}
-        >
-          <option value="all">All</option>
-          <option value="filled">Filled</option>
-          <option value="partial">Partially Filled</option>
-          <option value="not_filled">Not Filled</option>
-        </select>
-
-        {/* Status Badges */}
-        <div className="flex gap-3 items-center">
-          <span className="px-3 py-1 rounded-full text-sm bg-green-100 text-green-700">
-            Filled: {data.filter(r => getStatus(r) === "filled").length}
-          </span>
-
-          <span className="px-3 py-1 rounded-full text-sm bg-yellow-100 text-yellow-700">
-            Partial: {data.filter(r => getStatus(r) === "partial").length}
-          </span>
-
-          <span className="px-3 py-1 rounded-full text-sm bg-red-100 text-red-700">
-            Not Filled: {data.filter(r => getStatus(r) === "not_filled").length}
-          </span>
+        {/* HEADER */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-[#2E3A3F]">Land Preparation Records</h1>
+          <p className="text-[#2E3A3F]/70">Manage and monitor land preparation activities</p>
         </div>
 
-        {/* Record count */}
-        <span className="text-gray-700 text-sm font-medium">
-          Showing {table.getFilteredRowModel().rows.length} of {data.length} records
-        </span>
+        {/* FILTER PANEL */}
+        <div className="bg-white border border-gray-300 rounded-lg p-4 shadow-sm mb-6 w-full">
 
-        {/* Column visibility toggle */}
-        <details className="border px-3 py-2 rounded-md cursor-pointer">
-          <summary>Columns</summary>
-          <div className="mt-2 flex flex-col gap-1">
-            {table.getAllLeafColumns().map(column => (
-              <label key={column.id} className="flex gap-2">
-                <input
-                  type="checkbox"
-                  checked={column.getIsVisible()}
-                  onChange={column.getToggleVisibilityHandler()}
-                />
-                {column.id}
-              </label>
-            ))}
-          </div>
-        </details>
-      </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 
-      {/* ---------------------------------------------------
-         TABLE
-      --------------------------------------------------- */}
-      <div className="w-full overflow-auto border rounded-lg">
-        <table className="w-full border-collapse text-sm">
-          <thead className="bg-gray-100 sticky top-0 z-10 text-left">
-            {table.getHeaderGroups().map(hg => (
-              <tr key={hg.id}>
-                {hg.headers.map(header => (
-                  <th
-                    key={header.id}
-                    className="p-3 font-semibold border-b border-gray-300 tracking-wide cursor-pointer bg-gray-50"
-                    onClick={header.column.getToggleSortingHandler()}
-                  >
-                    {flexRender(header.column.columnDef.header, header.getContext())}
-                    {header.column.getIsSorted() === "asc" && " ▲"}
-                    {header.column.getIsSorted() === "desc" && " ▼"}
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-
-          <tbody>
-            {table.getRowModel().rows.map((row, i) => (
-              <tr
-                key={row.id}
-                className={`border-b ${
-                  i % 2 === 0 ? "bg-white" : "bg-gray-50"
-                } hover:bg-blue-50 transition-colors`}
-              >
-                {row.getVisibleCells().map(cell => (
-                  <td key={cell.id} className="p-3 border-gray-200">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* ---------------------------------------------------
-         PAGINATION
-      --------------------------------------------------- */}
-      <div className="flex gap-3 items-center mt-4">
-        <button
-          className="border px-3 py-1 rounded disabled:opacity-50"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-        >
-          Prev
-        </button>
-
-        <span>
-          Page {pagination.pageIndex + 1} / {table.getPageCount()}
-        </span>
-
-        <button
-          className="border px-3 py-1 rounded disabled:opacity-50"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-        >
-          Next
-        </button>
-      </div>
-
-      {/* ---------------------------------------------------
-         MODAL — FULL DETAILS (ONLY SCHEMA FIELDS)
-      --------------------------------------------------- */}
-      {selectedRecord && (
-        <div className="fixed inset-0 bg-black/40 backdrop_blur-sm flex items-center justify-center z-50 animate-fadeIn">
-          <div className="bg-white w-[450px] max-h-[80vh] rounded-lg shadow-xl p-5 overflow-y-auto animate-scaleIn">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">Land Preparation Details</h2>
-              <button
-                className="text-gray-500 hover:text-black"
-                onClick={() => setSelectedRecord(null)}
-              >
-                ✕
-              </button>
+            {/* SEARCH */}
+            <div className="flex flex-col">
+              <label className="text-sm font-medium">Search</label>
+              <input
+                className="border rounded px-3 h-10"
+                placeholder="Search all fields..."
+                value={globalFilter}
+                onChange={e => setGlobalFilter(e.target.value)}
+              />
             </div>
 
-            <div className="space-y-3">
-              {schemaFields.map(key => (
-                <div key={key} className="border-b pb-2">
-                  <div className="text-xs text-gray-500 uppercase tracking-wider">
-                    {key.replace(/_/g, " ")}
-                  </div>
-                  <div className="text-sm">
-                    {selectedRecord?.[key] || <span className="text-gray-400">—</span>}
-                  </div>
-                </div>
+            {/* DISTRICT */}
+            <div className="flex flex-col">
+              <label className="text-sm font-medium">District</label>
+              <select
+                className="border rounded px-3 h-10"
+                value={districtFilter}
+                onChange={e => {
+                  setDistrictFilter(e.target.value);
+                  setBlockFilter("");
+                  setVillageFilter("");
+                }}
+              >
+                <option value="">All Districts</option>
+                {uniqueDistricts.map(d => (
+                  <option key={d}>{d}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* BLOCK */}
+            <div className="flex flex-col">
+              <label className="text-sm font-medium">Block</label>
+              <select
+                className="border rounded px-3 h-10"
+                value={blockFilter}
+                disabled={!districtFilter}
+                onChange={e => {
+                  setBlockFilter(e.target.value);
+                  setVillageFilter("");
+                }}
+              >
+                <option value="">All Blocks</option>
+                {uniqueBlocks.map(b => (
+                  <option key={b}>{b}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* VILLAGE */}
+            <div className="flex flex-col">
+              <label className="text-sm font-medium">Village</label>
+              <select
+                className="border rounded px-3 h-10"
+                value={villageFilter}
+                disabled={!blockFilter}
+                onChange={e => setVillageFilter(e.target.value)}
+              >
+                <option value="">All Villages</option>
+                {uniqueVillages.map(v => (
+                  <option key={v}>{v}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* STATUS + COUNT */}
+          <div className="mt-4 flex flex-wrap gap-3">
+            <select
+              className="border rounded px-3 h-10"
+              value={completionFilter}
+              onChange={e => setCompletionFilter(e.target.value as any)}
+            >
+              <option value="all">All Records</option>
+              <option value="filled">Filled</option>
+              <option value="partial">Partial</option>
+              <option value="not_filled">Not Filled</option>
+            </select>
+
+            <span className="px-3 py-1 rounded bg-green-100 text-green-700 text-sm">
+              Filled: {data.filter(r => getStatus(r) === "filled").length}
+            </span>
+            <span className="px-3 py-1 rounded bg-yellow-100 text-yellow-700 text-sm">
+              Partial: {data.filter(r => getStatus(r) === "partial").length}
+            </span>
+            <span className="px-3 py-1 rounded bg-red-100 text-red-700 text-sm">
+              Not Filled: {data.filter(r => getStatus(r) === "not_filled").length}
+            </span>
+
+            <span className="ml-auto text-sm text-gray-600">
+              Showing {finalData.length} of {data.length} records
+            </span>
+          </div>
+
+        </div>
+
+        {/* TABLE */}
+        <div className="w-full overflow-auto border rounded-lg bg-white shadow">
+
+          <table className="w-full text-sm">
+            <thead className="bg-gray-100 sticky top-0 z-10 border-b">
+              {table.getHeaderGroups().map(hg => (
+                <tr key={hg.id}>
+                  {hg.headers.map(header => (
+                    <th
+                      key={header.id}
+                      className="p-3 font-semibold text-left cursor-pointer"
+                      onClick={header.column.getToggleSortingHandler()}
+                    >
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                      {header.column.getIsSorted() === "asc" && " ▲"}
+                      {header.column.getIsSorted() === "desc" && " ▼"}
+                    </th>
+                  ))}
+                </tr>
               ))}
-            </div>
-          </div>
+            </thead>
+
+            <tbody>
+              {table.getRowModel().rows.map((row, i) => (
+                <tr
+                  key={row.id}
+                  className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                >
+                  {row.getVisibleCells().map(cell => (
+                    <td key={cell.id} className="p-3 border-b">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
         </div>
-      )}
-    </>
+
+        {/* PAGINATION */}
+        <div className="flex gap-3 items-center mt-4">
+          <button
+            className="border px-3 py-2 rounded disabled:opacity-50"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+          >
+            Prev
+          </button>
+
+          <span className="text-sm font-medium">
+            Page {pagination.pageIndex + 1} / {table.getPageCount()}
+          </span>
+
+          <button
+            className="border px-3 py-2 rounded disabled:opacity-50"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+          >
+            Next
+          </button>
+        </div>
+
+        {/* MODAL */}
+        {selectedRecord && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+
+            <div className="bg-white w-[450px] max-h-[80vh] rounded-xl shadow-xl p-6 overflow-y-auto">
+
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-bold">Land Preparation Details</h2>
+                <button className="text-2xl" onClick={() => setSelectedRecord(null)}>×</button>
+              </div>
+
+              <div className="space-y-4">
+                {schemaFields.map(key => (
+                  <div key={key} className="border-b pb-2">
+                    <div className="text-xs uppercase text-gray-600">{key.replace(/_/g, " ")}</div>
+                    <div className="text-sm">{selectedRecord[key] || "—"}</div>
+                  </div>
+                ))}
+              </div>
+
+            </div>
+
+          </div>
+        )}
+
+      </div>
+
+    </div>
   );
 }

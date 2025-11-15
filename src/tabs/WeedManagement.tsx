@@ -15,9 +15,6 @@ import {
 
 import { useState, useEffect, useMemo } from "react";
 
-// --------------------------------------------------
-// TYPES
-// --------------------------------------------------
 export type WeedManagementRecord = {
   farmer_name: string;
   farmer_mobile: string;
@@ -55,9 +52,6 @@ export type WeedManagementRecord = {
   per_herbicide_unit: string;
 };
 
-// --------------------------------------------------
-// COMPLETION LOGIC
-// --------------------------------------------------
 function getStatus(record: WeedManagementRecord) {
   const fields = [
     record.hoeing_date_1,
@@ -74,16 +68,10 @@ function getStatus(record: WeedManagementRecord) {
   return "partial";
 }
 
-// --------------------------------------------------
-// SAFE FIELD GETTER (No TS errors)
-// --------------------------------------------------
 function getVal(record: WeedManagementRecord, key: string) {
   return (record as Record<string, any>)[key] ?? "—";
 }
 
-// --------------------------------------------------
-// SMALL MODAL COMPONENTS
-// --------------------------------------------------
 function Section({ title, children }: any) {
   return (
     <div>
@@ -104,9 +92,6 @@ function Field({ name, value }: { name: string; value: any }) {
   );
 }
 
-// --------------------------------------------------
-// MAIN COMPONENT
-// --------------------------------------------------
 export default function WeedManagementTable() {
   const [data, setData] = useState<WeedManagementRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -116,11 +101,12 @@ export default function WeedManagementTable() {
     "all" | "filled" | "partial" | "not_filled"
   >("all");
 
+  const [districtFilter, setDistrictFilter] = useState<string>("");
+  const [blockFilter, setBlockFilter] = useState<string>("");
+  const [villageFilter, setVillageFilter] = useState<string>("");
+
   const columnHelper = createColumnHelper<WeedManagementRecord>();
 
-  // --------------------------------------------------
-  // COLUMNS
-  // --------------------------------------------------
   const columns = [
     columnHelper.accessor("farmer_name", { header: "Farmer Name" }),
     columnHelper.accessor("crop_name_en", { header: "Crop" }),
@@ -128,15 +114,12 @@ export default function WeedManagementTable() {
     columnHelper.accessor("village_name", { header: "Village" }),
     columnHelper.accessor("block_name", { header: "Block" }),
     columnHelper.accessor("district_name", { header: "District" }),
-
-    // visible in main table
     columnHelper.accessor("surveyor_id", { header: "Surveyor ID" }),
     columnHelper.accessor("farmer_mobile", { header: "Mobile" }),
     columnHelper.accessor("hoeing_date_1", { header: "Hoeing Date 1" }),
     columnHelper.accessor("hand_weeding_date_1", { header: "Hand Weeding 1" }),
     columnHelper.accessor("post_herbicide_date_1", { header: "Post Herbicide 1" }),
     columnHelper.accessor("per_herbicide_date", { header: "Pre Herbicide" }),
-
     columnHelper.display({
       id: "actions",
       header: "Actions",
@@ -151,9 +134,6 @@ export default function WeedManagementTable() {
     }),
   ];
 
-  // --------------------------------------------------
-  // FETCH
-  // --------------------------------------------------
   useEffect(() => {
     async function load() {
       try {
@@ -167,15 +147,11 @@ export default function WeedManagementTable() {
     load();
   }, []);
 
-  // --------------------------------------------------
-  // TABLE STATE
-  // --------------------------------------------------
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
 
-  // Default visibility — only main columns visible
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
     farmer_name: false,
     crop_name_en: false,
@@ -211,14 +187,69 @@ export default function WeedManagementTable() {
     actions: true,
   });
 
-  // --------------------------------------------------
-  // FILTER BY STATUS
-  // --------------------------------------------------
+  const uniqueDistricts = useMemo(
+    () =>
+      Array.from(new Set(data.map(r => r.district_name).filter(Boolean))).sort(
+        (a: string, b: string) => a.localeCompare(b)
+      ),
+    [data]
+  );
+
+  const uniqueBlocks = useMemo(
+    () =>
+      Array.from(new Set(data.map(r => r.block_name).filter(Boolean))).sort((a: string, b: string) =>
+        a.localeCompare(b)
+      ),
+    [data]
+  );
+
+  const uniqueVillages = useMemo(
+    () =>
+      Array.from(new Set(data.map(r => r.village_name).filter(Boolean))).sort((a: string, b: string) =>
+        a.localeCompare(b)
+      ),
+    [data]
+  );
+
   const filteredByStatus = useMemo(() => {
-    return data.filter(r =>
-      completionFilter === "all" ? true : getStatus(r) === completionFilter
-    );
-  }, [data, completionFilter]);
+    const g = globalFilter.trim().toLowerCase();
+    return data.filter(r => {
+      if (completionFilter !== "all" && getStatus(r) !== completionFilter) return false;
+      if (districtFilter && (!r.district_name || !r.district_name.toLowerCase().includes(districtFilter.toLowerCase()))) return false;
+      if (blockFilter && (!r.block_name || !r.block_name.toLowerCase().includes(blockFilter.toLowerCase()))) return false;
+      if (villageFilter && (!r.village_name || !r.village_name.toLowerCase().includes(villageFilter.toLowerCase()))) return false;
+
+      if (!g) return true;
+
+      const searchable = [
+        r.farmer_name,
+        r.farmer_mobile,
+        r.crop_name_en,
+        r.surveyor_name,
+        r.surveyor_id,
+        r.village_name,
+        r.block_name,
+        r.district_name,
+        r.hoeing_date_1,
+        r.hoeing_date_2,
+        r.hand_weeding_date_1,
+        r.hand_weeding_date_2,
+        r.post_herbicide_date_1,
+        r.post_herbicide_name_1,
+        r.post_herbicide_date_2,
+        r.post_herbicide_name_2,
+        r.post_herbicide_date_3,
+        r.post_herbicide_name_3,
+        r.per_herbicide_date,
+        r.per_herbicide_name,
+      ]
+        .filter(Boolean)
+        .map(s => String(s).toLowerCase())
+        .join(" ");
+
+      return searchable.includes(g);
+    });
+  }, [data, completionFilter, districtFilter, blockFilter, villageFilter, globalFilter]);
 
   const table = useReactTable({
     data: filteredByStatus,
@@ -246,228 +277,271 @@ export default function WeedManagementTable() {
   if (loading) return <div className="p-4">Loading...</div>;
 
   return (
-    <>
-      {/* CONTROLS */}
-      <div className="flex flex-wrap gap-4 items-center justify-between mb-4">
+    <div className="w-full min-h-screen bg-[#F5E9D4]/20">
+      <div className="w-full max-w-none p-6">
+        <div className="flex flex-wrap gap-4 items-center justify-between mb-4">
+          <input
+            placeholder="Search..."
+            className="border px-3 py-2 rounded-md w-60"
+            value={globalFilter}
+            onChange={e => setGlobalFilter(e.target.value)}
+          />
 
-        <input
-          placeholder="Search..."
-          className="border px-3 py-2 rounded-md w-60"
-          value={globalFilter}
-          onChange={e => setGlobalFilter(e.target.value)}
-        />
+          <div className="flex gap-2 items-center">
+            <select
+              className="border px-3 py-2 rounded-md"
+              value={districtFilter}
+              onChange={e => {
+                setDistrictFilter(e.target.value);
+                setBlockFilter("");
+                setVillageFilter("");
+              }}
+            >
+              <option value="">All Districts</option>
+              {uniqueDistricts.map(d => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
 
-        <select
-          className="border px-3 py-2 rounded-md"
-          value={completionFilter}
-          onChange={e => setCompletionFilter(e.target.value as any)}
-        >
-          <option value="all">All</option>
-          <option value="filled">Filled</option>
-          <option value="partial">Partially Filled</option>
-          <option value="not_filled">Not Filled</option>
-        </select>
+            <select
+              className="border px-3 py-2 rounded-md"
+              value={blockFilter}
+              onChange={e => {
+                setBlockFilter(e.target.value);
+                setVillageFilter("");
+              }}
+            >
+              <option value="">All Blocks</option>
+              {uniqueBlocks
+                .filter(b => (districtFilter ? data.some(r => r.block_name === b && r.district_name === districtFilter) : true))
+                .map(b => (
+                  <option key={b} value={b}>
+                    {b}
+                  </option>
+                ))}
+            </select>
 
-        {/* Status Badges */}
-        <div className="flex gap-3 items-center">
-          <span className="px-3 py-1 rounded-full text-sm bg-green-100 text-green-700">
-            Filled: {data.filter(r => getStatus(r) === "filled").length}
+            <select
+              className="border px-3 py-2 rounded-md"
+              value={villageFilter}
+              onChange={e => setVillageFilter(e.target.value)}
+            >
+              <option value="">All Villages</option>
+              {uniqueVillages
+                .filter(v =>
+                  districtFilter
+                    ? data.some(r => r.village_name === v && r.district_name === districtFilter && (blockFilter ? r.block_name === blockFilter : true))
+                    : blockFilter
+                    ? data.some(r => r.village_name === v && r.block_name === blockFilter)
+                    : true
+                )
+                .map(v => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+            </select>
+
+            <select
+              className="border px-3 py-2 rounded-md"
+              value={completionFilter}
+              onChange={e => setCompletionFilter(e.target.value as any)}
+            >
+              <option value="all">All</option>
+              <option value="filled">Filled</option>
+              <option value="partial">Partially Filled</option>
+              <option value="not_filled">Not Filled</option>
+            </select>
+          </div>
+
+          <div className="flex gap-3 items-center">
+            <span className="px-3 py-1 rounded-full text-sm bg-green-100 text-green-700">
+              Filled: {data.filter(r => getStatus(r) === "filled").length}
+            </span>
+
+            <span className="px-3 py-1 rounded-full text-sm bg-yellow-100 text-yellow-700">
+              Partial: {data.filter(r => getStatus(r) === "partial").length}
+            </span>
+
+            <span className="px-3 py-1 rounded-full text-sm bg-red-100 text-red-700">
+              Not Filled: {data.filter(r => getStatus(r) === "not_filled").length}
+            </span>
+          </div>
+
+          <span className="text-gray-700 text-sm font-medium">
+            Showing {table.getFilteredRowModel().rows.length} of {data.length} records
           </span>
 
-          <span className="px-3 py-1 rounded-full text-sm bg-yellow-100 text-yellow-700">
-            Partial: {data.filter(r => getStatus(r) === "partial").length}
-          </span>
-
-          <span className="px-3 py-1 rounded-full text-sm bg-red-100 text-red-700">
-            Not Filled: {data.filter(r => getStatus(r) === "not_filled").length}
-          </span>
+          <details className="border px-3 py-2 rounded-md cursor-pointer">
+            <summary>Columns</summary>
+            <div className="mt-2 flex flex-col gap-1">
+              {table.getAllLeafColumns().map(col => (
+                <label key={col.id} className="flex gap-2">
+                  <input
+                    type="checkbox"
+                    checked={col.getIsVisible()}
+                    onChange={col.getToggleVisibilityHandler()}
+                  />
+                  {col.id}
+                </label>
+              ))}
+            </div>
+          </details>
         </div>
 
-        <span className="text-gray-700 text-sm font-medium">
-          Showing {table.getFilteredRowModel().rows.length} of {data.length} records
-        </span>
+        <div className="w-full overflow-auto border rounded-lg">
+          <table className="w-full border-collapse text-sm">
+            <thead className="bg-gray-100 sticky top-0 z-10">
+              {table.getHeaderGroups().map(hg => (
+                <tr key={hg.id}>
+                  {hg.headers.map(header => (
+                    <th
+                      key={header.id}
+                      className="p-3 font-semibold border-b border-gray-300 cursor-pointer"
+                      onClick={header.column.getToggleSortingHandler()}
+                    >
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                      {header.column.getIsSorted() === "asc" && " ▲"}
+                      {header.column.getIsSorted() === "desc" && " ▼"}
+                    </th>
+                  ))}
+                </tr>
+              ))}
+            </thead>
 
-        {/* Column Toggle */}
-        <details className="border px-3 py-2 rounded-md cursor-pointer">
-          <summary>Columns</summary>
-          <div className="mt-2 flex flex-col gap-1">
-            {table.getAllLeafColumns().map(col => (
-              <label key={col.id} className="flex gap-2">
-                <input
-                  type="checkbox"
-                  checked={col.getIsVisible()}
-                  onChange={col.getToggleVisibilityHandler()}
-                />
-                {col.id}
-              </label>
-            ))}
-          </div>
-        </details>
-      </div>
+            <tbody>
+              {table.getRowModel().rows.map(row => (
+                <tr key={row.id} className="border-b hover:bg-blue-50 transition-colors">
+                  {row.getVisibleCells().map(cell => (
+                    <td key={cell.id} className="p-3 border-gray-200">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-      {/* TABLE */}
-      <div className="w-full overflow-auto border rounded-lg">
-        <table className="w-full border-collapse text-sm">
-          <thead className="bg-gray-100 sticky top-0 z-10">
-            {table.getHeaderGroups().map(hg => (
-              <tr key={hg.id}>
-                {hg.headers.map(header => (
-                  <th
-                    key={header.id}
-                    className="p-3 font-semibold border-b border-gray-300 cursor-pointer"
-                    onClick={header.column.getToggleSortingHandler()}
+        <div className="flex gap-3 items-center mt-4">
+          <button
+            className="border px-3 py-1 rounded disabled:opacity-50"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+          >
+            Prev
+          </button>
+
+          <span>
+            Page {pagination.pageIndex + 1} / {table.getPageCount()}
+          </span>
+
+          <button
+            className="border px-3 py-1 rounded disabled:opacity-50"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+          >
+            Next
+          </button>
+        </div>
+
+        {selectedRecord && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-white w-[490px] max-h-[90vh] rounded-lg shadow-xl p-5 overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-lg font-semibold">Weed Management Details</h2>
+
+                  <span
+                    className={`
+                      text-xs px-2 py-1 rounded
+                      ${
+                        getStatus(selectedRecord) === "filled"
+                          ? "bg-green-100 text-green-700"
+                          : getStatus(selectedRecord) === "partial"
+                          ? "bg-yellow-100 text-yellow-700"
+                          : "bg-red-100 text-red-700"
+                      }
+                    `}
                   >
-                    {flexRender(header.column.columnDef.header, header.getContext())}
-                    {header.column.getIsSorted() === "asc" && " ▲"}
-                    {header.column.getIsSorted() === "desc" && " ▼"}
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
+                    {getStatus(selectedRecord).replace("_", " ")}
+                  </span>
+                </div>
 
-          <tbody>
-            {table.getRowModel().rows.map(row => (
-              <tr key={row.id} className="border-b hover:bg-blue-50 transition-colors">
-                {row.getVisibleCells().map(cell => (
-                  <td key={cell.id} className="p-3 border-gray-200">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* PAGINATION */}
-      <div className="flex gap-3 items-center mt-4">
-        <button
-          className="border px-3 py-1 rounded disabled:opacity-50"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-        >
-          Prev
-        </button>
-
-        <span>
-          Page {pagination.pageIndex + 1} / {table.getPageCount()}
-        </span>
-
-        <button
-          className="border px-3 py-1 rounded disabled:opacity-50"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-        >
-          Next
-        </button>
-      </div>
-
-      {/* MODAL */}
-      {selectedRecord && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white w-[490px] max-h-[90vh] rounded-lg shadow-xl p-5 overflow-y-auto">
-
-            <div className="flex justify-between items-center mb-4">
-              <div className="flex items-center gap-3">
-                <h2 className="text-lg font-semibold">Weed Management Details</h2>
-
-                <span
-                  className={`
-                    text-xs px-2 py-1 rounded
-                    ${
-                      getStatus(selectedRecord) === "filled"
-                        ? "bg-green-100 text-green-700"
-                        : getStatus(selectedRecord) === "partial"
-                        ? "bg-yellow-100 text-yellow-700"
-                        : "bg-red-100 text-red-700"
-                    }
-                  `}
+                <button
+                  className="text-gray-500 hover:text-black"
+                  onClick={() => setSelectedRecord(null)}
                 >
-                  {getStatus(selectedRecord).replace("_", " ")}
-                </span>
+                  ✕
+                </button>
               </div>
 
-              <button
-                className="text-gray-500 hover:text-black"
-                onClick={() => setSelectedRecord(null)}
-              >
-                ✕
-              </button>
-            </div>
+              <div className="space-y-6">
+                <Section title="Farmer & Location">
+                  {[
+                    "farmer_name",
+                    "farmer_mobile",
+                    "village_name",
+                    "block_name",
+                    "district_name",
+                  ].map(key => (
+                    <Field key={key} name={key} value={getVal(selectedRecord, key)} />
+                  ))}
+                </Section>
 
-            <div className="space-y-6">
+                <Section title="Crop Details">
+                  {["crop_name_en"].map(key => (
+                    <Field key={key} name={key} value={getVal(selectedRecord, key)} />
+                  ))}
+                </Section>
 
-              {/* Farmer & Location */}
-              <Section title="Farmer & Location">
-                {[
-                  "farmer_name",
-                  "farmer_mobile",
-                  "village_name",
-                  "block_name",
-                  "district_name",
-                ].map(key => (
-                  <Field key={key} name={key} value={getVal(selectedRecord, key)} />
-                ))}
-              </Section>
+                <Section title="Hoeing & Hand Weeding">
+                  {[
+                    "hoeing_date_1",
+                    "hoeing_date_2",
+                    "hand_weeding_date_1",
+                    "hand_weeding_date_2",
+                  ].map(key => (
+                    <Field key={key} name={key} value={getVal(selectedRecord, key)} />
+                  ))}
+                </Section>
 
-              {/* Crop */}
-             {/* Crop */}
-<Section title="Crop Details">
-  {["crop_name_en"].map(key => (
-    <Field key={key} name={key} value={getVal(selectedRecord, key)} />
-  ))}
-</Section>
+                <Section title="Post Herbicides">
+                  {[1, 2, 3].map(n => {
+                    const fields = [
+                      `post_herbicide_date_${n}`,
+                      `post_herbicide_name_${n}`,
+                      `post_herbicide_quantity_${n}`,
+                      `post_herbicide_unit_${n}`,
+                    ];
+                    return (
+                      <div key={n} className="border p-2 rounded-md space-y-1">
+                        <div className="font-medium text-sm mb-1">Post Herbicide {n}</div>
+                        {fields.map(key => (
+                          <Field key={key} name={key} value={getVal(selectedRecord, key)} />
+                        ))}
+                      </div>
+                    );
+                  })}
+                </Section>
 
-
-              {/* Hoeing & Hand Weeding */}
-              <Section title="Hoeing & Hand Weeding">
-                {[
-                  "hoeing_date_1",
-                  "hoeing_date_2",
-                  "hand_weeding_date_1",
-                  "hand_weeding_date_2",
-                ].map(key => (
-                  <Field key={key} name={key} value={getVal(selectedRecord, key)} />
-                ))}
-              </Section>
-
-              {/* Post Herbicides */}
-              <Section title="Post Herbicides">
-                {[1, 2, 3].map(n => {
-                  const fields = [
-                    `post_herbicide_date_${n}`,
-                    `post_herbicide_name_${n}`,
-                    `post_herbicide_quantity_${n}`,
-                    `post_herbicide_unit_${n}`,
-                  ];
-                  return (
-                    <div key={n} className="border p-2 rounded-md space-y-1">
-                      <div className="font-medium text-sm mb-1">Post Herbicide {n}</div>
-                      {fields.map(key => (
-                        <Field key={key} name={key} value={getVal(selectedRecord, key)} />
-                      ))}
-                    </div>
-                  );
-                })}
-              </Section>
-
-              {/* Pre Herbicide */}
-              <Section title="Pre Herbicide">
-                {[
-                  "per_herbicide_date",
-                  "per_herbicide_name",
-                  "per_herbicide_quantity",
-                  "per_herbicide_unit",
-                ].map(key => (
-                  <Field key={key} name={key} value={getVal(selectedRecord, key)} />
-                ))}
-              </Section>
-
+                <Section title="Pre Herbicide">
+                  {[
+                    "per_herbicide_date",
+                    "per_herbicide_name",
+                    "per_herbicide_quantity",
+                    "per_herbicide_unit",
+                  ].map(key => (
+                    <Field key={key} name={key} value={getVal(selectedRecord, key)} />
+                  ))}
+                </Section>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </>
+        )}
+      </div>
+    </div>
   );
 }

@@ -162,13 +162,14 @@ export default function SoilMoistureLiveTable() {
     getSortedRowModel: getSortedRowModel(),
   });
 
-  if (loading) return <div className="p-4">Loading...</div>;
+  if (loading) return <div className="p-6">Loading...</div>;
 
   // -------------------------------
   // UI
   // -------------------------------
   return (
-    <>
+    <div className="w-full min-h-screen bg-[#F5E9D4]/20">
+      <div className="w-full max-w-none p-6">
       {/* FILTERS */}
       <div className="flex flex-wrap gap-4 items-end mb-4 p-3 border rounded-md bg-gray-50">
 
@@ -336,6 +337,7 @@ export default function SoilMoistureLiveTable() {
           </div>
         </div>
       )}
-    </>
+    </div>
+    </div>
   );
 }

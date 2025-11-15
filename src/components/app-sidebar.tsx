@@ -2,106 +2,127 @@
 
 import * as React from "react"
 import {
-  AudioWaveform,
-  BookOpen,
-  Bot,
-  Command,
-  Frame,
-  GalleryVerticalEnd,
-  Map,
-  PieChart,
-  Settings2,
-  SquareTerminal,
+  LayoutDashboard,
+  Tractor,
+  Sprout,
+  Droplets,
+  Wheat,
+  Users,
+  CloudRain,
+  Leaf,
+  Activity,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
-import { TeamSwitcher } from "@/components/team-switcher"
+import { NavUser } from "@/components/nav-user"
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
-  SidebarMenuButton,
   SidebarRail,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
 } from "@/components/ui/sidebar"
 
-// This is sample data.
 const data = {
   user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
+    name: "Agricultural Officer",
+    email: "officer@agri.gov",
+    avatar: "/avatars/user.jpg",
   },
-  teams: [
+  navMain: [
     {
-      name: "Acme Inc",
-      logo: GalleryVerticalEnd,
-      plan: "Enterprise",
+      title: "Farm Management",
+      url: "#",
+      icon: Tractor,
+      isActive: false,
+      items: [
+        { title: "Land Preparation", url: "/land-preparation" },
+        { title: "Seed Selection", url: "/seed-selection" },
+        { title: "Irrigation Management", url: "/irrigation" },
+        { title: "Weed Management", url: "/weed-management" },
+        { title: "Nutrient Management", url: "/nutrient-management" },
+        { title: "Pest Management", url: "/pest-management" },
+        { title: "Harvest Management", url: "/harvest-management" },
+      ],
     },
     {
-      name: "Acme Corp.",
-      logo: AudioWaveform,
-      plan: "Startup",
+      title: "Soil Moisture",
+      url: "#",
+      icon: Droplets,
+      items: [
+        { title: "Sensor Data", url: "/soil-moisture-sensor" },
+        { title: "Manual Readings", url: "/soil-moisture-manual" },
+      ],
     },
     {
-      name: "Evil Corp.",
-      logo: Command,
-      plan: "Free",
+      title: "Surveys",
+      url: "#",
+      icon: Activity,
+      items: [
+        { title: "Pest Survey", url: "/pest-survey" },
+        { title: "Disease Survey", url: "/disease-survey" },
+      ],
     },
   ],
- navMain: [
-  {
-    title: "Farm Management",
-    url: "#",
-    icon: SquareTerminal,
-    isActive: true,
-    items: [
-      { title: "Land Preparations", url: "#" },
-      { title: "Seed Selections", url: "#" },
-      { title: "Irrigation Management", url: "#" },
-      { title: "Weed Management", url: "#" },
-      { title: "Nutrient Management", url: "#" },
-      { title: "Pest Management", url: "#" },
-      { title: "Harvest Management", url: "#" },
-    ],
-  },
-  {
-    title: "Soil Moisture",
-    url: "#",
-    icon: Bot,
-    items: [
-      { title: "Sensors", url: "#" },
-      { title: "Manual Readings", url: "#" },
-    ],
-  },
-
-
-
-  {
-    title: "Surveys",
-    url: "#",
-    icon: Settings2,
-    items: [
-      { title: "Pest Survey", url: "#" },
-      { title: "Disease Survey", url: "#" },
-    ],
-  },
-],
-
+  navSecondary: [
+    { title: "Plant Nutrients", url: "/plant-nutrients", icon: Leaf },
+    { title: "Crop Registrations", url: "/crop-registrations", icon: Wheat },
+    { title: "Weather Stations", url: "/weather", icon: CloudRain },
+    { title: "Farmers", url: "/farmers", icon: Users },
+    { title: "Surveyors", url: "/surveyors", icon: Users },
+  ],
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
-    <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader>
-        <TeamSwitcher teams={data.teams} />
+    <Sidebar collapsible="icon" {...props} className="border-r border-[#6D4C41]/10">
+      <SidebarHeader className="border-b border-[#6D4C41]/10">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton size="lg" asChild>
+              <a href="/" className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#1B5E20] text-white">
+                  <Sprout className="h-5 w-5" />
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="font-semibold text-[#2E3A3F]">AgriAdvisory</span>
+                  <span className="text-xs text-[#2E3A3F]/70">Farm Management System</span>
+                </div>
+              </a>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-          
-     
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild>
+              <a href="/" className="flex items-center gap-3 hover:bg-[#7CB342]/10">
+                <LayoutDashboard className="h-5 w-5" />
+                <span>Dashboard</span>
+              </a>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
         <NavMain items={data.navMain} />
+        <SidebarMenu>
+          {data.navSecondary.map((item) => (
+            <SidebarMenuItem key={item.title}>
+              <SidebarMenuButton asChild>
+                <a href={item.url} className="flex items-center gap-3 hover:bg-[#7CB342]/10">
+                  <item.icon className="h-5 w-5" />
+                  <span>{item.title}</span>
+                </a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="border-t border-[#6D4C41]/10">
+        <NavUser user={data.user} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

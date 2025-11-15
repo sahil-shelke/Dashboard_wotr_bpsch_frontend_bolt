@@ -188,13 +188,14 @@ export default function WeatherStationTable() {
     getSortedRowModel: getSortedRowModel(),
   });
 
-  if (loading) return <div className="p-4">Loading...</div>;
+  if (loading) return <div className="p-6">Loading...</div>;
 
   // -------------------------------------------------------------
   // UI
   // -------------------------------------------------------------
   return (
-    <>
+    <div className="w-full min-h-screen bg-[#F5E9D4]/20">
+      <div className="w-full max-w-none p-6">
       {/* FILTER BOX */}
       <div className="flex flex-wrap gap-4 items-end mb-4 p-3 border rounded-md bg-gray-50">
         <div className="flex flex-col">
@@ -362,6 +363,7 @@ export default function WeatherStationTable() {
           </div>
         </div>
       )}
-    </>
+    </div>
+    </div>
   );
 }

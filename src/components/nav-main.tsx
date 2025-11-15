@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/collapsible"
 import {
   SidebarGroup,
+  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -31,24 +32,8 @@ export function NavMain({
 }) {
   return (
     <SidebarGroup>
-      
+      <SidebarGroupLabel className="text-[#6D4C41] font-semibold">Operations</SidebarGroupLabel>
       <SidebarMenu>
-                 <SidebarMenuButton asChild>
-          <a href="#">
-            <span>Surveyors</span>
-          </a>
-        </SidebarMenuButton>
-                 <SidebarMenuButton asChild>
-          <a href="#">
-            <span>Farmers</span>
-          </a>
-        </SidebarMenuButton>
-                       <SidebarMenuButton asChild>
-          <a href="#">
-            <span>Crop Registrations</span>
-          </a>
-        </SidebarMenuButton>
-
         {items.map((item) => (
           <Collapsible
             key={item.title}
@@ -56,21 +41,20 @@ export function NavMain({
             defaultOpen={item.isActive}
             className="group/collapsible"
           >
-            
             <SidebarMenuItem>
               <CollapsibleTrigger asChild>
-                <SidebarMenuButton tooltip={item.title}>
-                  {item.icon && <item.icon />}
-                  <span>{item.title}</span>
-                  <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                <SidebarMenuButton tooltip={item.title} className="hover:bg-[#7CB342]/10">
+                  {item.icon && <item.icon className="text-[#1B5E20]" />}
+                  <span className="text-[#2E3A3F]">{item.title}</span>
+                  <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90 text-[#6D4C41]" />
                 </SidebarMenuButton>
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <SidebarMenuSub>
                   {item.items?.map((subItem) => (
                     <SidebarMenuSubItem key={subItem.title}>
-                      <SidebarMenuSubButton asChild>
-                        <a href={subItem.url}>
+                      <SidebarMenuSubButton asChild className="hover:bg-[#7CB342]/10">
+                        <a href={subItem.url} className="text-[#2E3A3F]/80 hover:text-[#1B5E20]">
                           <span>{subItem.title}</span>
                         </a>
                       </SidebarMenuSubButton>
@@ -81,16 +65,6 @@ export function NavMain({
             </SidebarMenuItem>
           </Collapsible>
         ))}
-         <SidebarMenuButton asChild>
-          <a href="#">
-            <span>Plant Nutrients</span>
-          </a>
-        </SidebarMenuButton>
-                 <SidebarMenuButton asChild>
-          <a href="#">
-            <span>Davis Weather</span>
-          </a>
-        </SidebarMenuButton>
       </SidebarMenu>
     </SidebarGroup>
   )

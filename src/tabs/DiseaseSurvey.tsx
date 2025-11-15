@@ -219,14 +219,15 @@ export default function DiseaseObservationTable() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  if (loading) return <div className="p-4">Loading...</div>;
+  if (loading) return <div className="p-6">Loading...</div>;
 
   // ------------------------------------------------------------
   // RENDER
   // ------------------------------------------------------------
 
   return (
-    <>
+    <div className="w-full min-h-screen bg-[#F5E9D4]/20">
+      <div className="w-full max-w-none p-6">
       {/* CONTROLS */}
       <div className="flex flex-wrap gap-4 items-center justify-between mb-4">
         <input
@@ -477,6 +478,7 @@ export default function DiseaseObservationTable() {
           </div>
         </div>
       )}
-    </>
+    </div>
+    </div>
   );
 }

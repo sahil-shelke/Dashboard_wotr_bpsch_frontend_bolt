@@ -13,7 +13,7 @@ import {
   type VisibilityState,
 } from "@tanstack/react-table";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 // ---------------------------
 // Types
@@ -28,14 +28,19 @@ export type SurveyorRecord = {
   surveyor_id?: string;
   surveyor_name?: string;
   surveyor_pin?: string;
+
   state?: string;
   state_code?: string;
+
   district?: string;
   district_code?: string;
+
   block?: string;
   block_code?: string;
+
   station_id?: string;
   villages?: VillageItem[] | string;
+
   [k: string]: any;
 };
 
@@ -55,7 +60,7 @@ function parseVillages(raw: any): VillageItem[] {
 
 function safe(obj: any, key: string) {
   const v = obj?.[key];
-  return v ? v : "—";
+  return v && String(v).trim() !== "" ? v : "—";
 }
 
 // ---------------------------
@@ -69,6 +74,12 @@ export default function SurveyorRecordsTable() {
   // Table state
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
+
+  // Dependent filters
+  const [stateFilter, setStateFilter] = useState("");
+  const [districtFilter, setDistrictFilter] = useState("");
+  const [blockFilter, setBlockFilter] = useState("");
+
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
 
@@ -88,10 +99,7 @@ export default function SurveyorRecordsTable() {
     columnHelper.display({
       id: "village_count",
       header: "Villages",
-      cell: ({ row }) => {
-        const arr = parseVillages(row.original.villages);
-        return arr.length;
-      },
+      cell: ({ row }) => parseVillages(row.original.villages).length,
     }),
 
     columnHelper.display({
@@ -108,7 +116,6 @@ export default function SurveyorRecordsTable() {
     }),
   ];
 
-  // Default visibility
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
     surveyor_pin: false,
     state_code: false,
@@ -134,10 +141,58 @@ export default function SurveyorRecordsTable() {
   }, []);
 
   // ---------------------------
+  // UNIQUE LISTS for Filters
+  // ---------------------------
+  const uniqueStates = useMemo(
+    () => [...new Set(data.map((d) => d.state).filter(Boolean))].sort(),
+    [data]
+  );
+
+  const uniqueDistricts = useMemo(() => {
+    return [
+      ...new Set(
+        data
+          .filter((d) => !stateFilter || d.state === stateFilter)
+          .map((d) => d.district)
+          .filter(Boolean)
+      ),
+    ].sort();
+  }, [data, stateFilter]);
+
+  const uniqueBlocks = useMemo(() => {
+    return [
+      ...new Set(
+        data
+          .filter((d) => (!stateFilter || d.state === stateFilter) &&
+                         (!districtFilter || d.district === districtFilter))
+          .map((d) => d.block)
+          .filter(Boolean)
+      ),
+    ].sort();
+  }, [data, stateFilter, districtFilter]);
+
+  // ---------------------------
+  // Final Filtered Data
+  // ---------------------------
+  const filteredData = useMemo(() => {
+    return data.filter((rec) => {
+      const searchMatch = JSON.stringify(rec)
+        .toLowerCase()
+        .includes(globalFilter.toLowerCase());
+
+      const stateMatch = !stateFilter || rec.state === stateFilter;
+      const districtMatch = !districtFilter || rec.district === districtFilter;
+      const blockMatch = !blockFilter || rec.block === blockFilter;
+
+      return searchMatch && stateMatch && districtMatch && blockMatch;
+    });
+  }, [data, globalFilter, stateFilter, districtFilter, blockFilter]);
+
+  // ---------------------------
   // Table
   // ---------------------------
   const table = useReactTable({
-    data,
+    data: filteredData,
     columns,
     state: { sorting, globalFilter, columnFilters, columnVisibility, pagination },
     onSortingChange: setSorting,
@@ -151,189 +206,244 @@ export default function SurveyorRecordsTable() {
     getPaginationRowModel: getPaginationRowModel(),
   });
 
-  if (loading) return <div className="p-4">Loading...</div>;
+  if (loading) return <div className="p-6">Loading...</div>;
 
   // ---------------------------
   // UI
   // ---------------------------
   return (
-    <>
-      {/* Top Bar */}
-      <div className="flex flex-wrap gap-4 items-center justify-between mb-4">
-        <input
-          className="border px-3 py-2 rounded-md w-60"
-          placeholder="Search..."
-          value={globalFilter}
-          onChange={(e) => setGlobalFilter(e.target.value)}
-        />
+    <div className="w-full min-h-screen bg-[#F5E9D4]/20">
+      <div className="w-full max-w-none p-6">
 
-        <details className="border px-3 py-2 rounded-md cursor-pointer">
-          <summary>Columns</summary>
-          <div className="mt-2 flex flex-col gap-1">
-            {table.getAllLeafColumns().map((col) => (
-              <label key={col.id} className="flex gap-2 items-center">
-                <input
-                  type="checkbox"
-                  checked={col.getIsVisible()}
-                  onChange={col.getToggleVisibilityHandler()}
-                />
-                {col.id}
-              </label>
+        {/* FILTERS */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {/* SEARCH */}
+          <input
+            placeholder="Search..."
+            className="border px-3 py-2 rounded-md w-full"
+            value={globalFilter}
+            onChange={(e) => setGlobalFilter(e.target.value)}
+          />
+
+          {/* STATE */}
+          <select
+            value={stateFilter}
+            onChange={(e) => {
+              setStateFilter(e.target.value);
+              setDistrictFilter("");
+              setBlockFilter("");
+            }}
+            className="border px-3 py-2 rounded-md"
+          >
+            <option value="">All States</option>
+            {uniqueStates.map((s) => (
+              <option key={s}>{s}</option>
             ))}
-          </div>
-        </details>
+          </select>
 
-        <span className="text-sm text-gray-700">
-          Showing {table.getFilteredRowModel().rows.length} of {data.length} records
-        </span>
-      </div>
-
-      {/* Table */}
-      <div className="w-full overflow-auto border rounded-md">
-        <table className="w-full text-sm border-collapse">
-          <thead className="bg-gray-100">
-            {table.getHeaderGroups().map((hg) => (
-              <tr key={hg.id}>
-                {hg.headers.map((h) => (
-                  <th
-                    key={h.id}
-                    className="p-3 border-b font-semibold cursor-pointer"
-                    onClick={h.column.getToggleSortingHandler()}
-                  >
-                    {flexRender(h.column.columnDef.header, h.getContext())}
-                    {h.column.getIsSorted() === "asc" && " ▲"}
-                    {h.column.getIsSorted() === "desc" && " ▼"}
-                  </th>
-                ))}
-              </tr>
+          {/* DISTRICT */}
+          <select
+            value={districtFilter}
+            disabled={!stateFilter}
+            onChange={(e) => {
+              setDistrictFilter(e.target.value);
+              setBlockFilter("");
+            }}
+            className={`border px-3 py-2 rounded-md ${
+              !stateFilter ? "bg-gray-200" : ""
+            }`}
+          >
+            <option value="">All Districts</option>
+            {uniqueDistricts.map((d) => (
+              <option key={d}>{d}</option>
             ))}
-          </thead>
+          </select>
 
-          <tbody>
-            {table.getRowModel().rows.map((row, i) => (
-              <tr
-                key={row.id}
-                className={i % 2 === 0 ? "bg-white border-b" : "bg-gray-50 border-b"}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="p-3">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
+          {/* BLOCK */}
+          <select
+            value={blockFilter}
+            disabled={!districtFilter}
+            onChange={(e) => setBlockFilter(e.target.value)}
+            className={`border px-3 py-2 rounded-md ${
+              !districtFilter ? "bg-gray-200" : ""
+            }`}
+          >
+            <option value="">All Blocks</option>
+            {uniqueBlocks.map((b) => (
+              <option key={b}>{b}</option>
             ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      <div className="flex gap-3 items-center mt-4">
-        <button
-          className="border px-3 py-1 rounded disabled:opacity-50"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-        >
-          Prev
-        </button>
-
-        <span>
-          Page {pagination.pageIndex + 1} / {table.getPageCount()}
-        </span>
-
-        <button
-          className="border px-3 py-1 rounded disabled:opacity-50"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-        >
-          Next
-        </button>
-      </div>
-
-      {/* Modal */}
-      {selected && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white w-[550px] max-h-[90vh] rounded-lg shadow-xl p-5 overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">Surveyor Details</h2>
-              <button className="text-gray-500 hover:text-black" onClick={() => setSelected(null)}>
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-4">
-
-              {/* Basic */}
-              <section>
-                <h3 className="text-sm font-semibold mb-2">Primary</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <div className="text-xs text-gray-500">Surveyor Name</div>
-                    <div className="text-sm">{safe(selected, "surveyor_name")}</div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs text-gray-500">Surveyor ID</div>
-                    <div className="text-sm">{safe(selected, "surveyor_id")}</div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs text-gray-500">PIN</div>
-                    <div className="text-sm">{safe(selected, "surveyor_pin")}</div>
-                  </div>
-                </div>
-              </section>
-
-              {/* Location */}
-              <section>
-                <h3 className="text-sm font-semibold mb-2">Location</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <div className="text-xs text-gray-500">State</div>
-                    <div className="text-sm">{safe(selected, "state")}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-gray-500">District</div>
-                    <div className="text-sm">{safe(selected, "district")}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-gray-500">Block</div>
-                    <div className="text-sm">{safe(selected, "block")}</div>
-                  </div>
-                </div>
-              </section>
-
-              {/* Villages */}
-              <section>
-                <h3 className="text-sm font-semibold mb-2">Villages</h3>
-
-                {parseVillages(selected.villages).length === 0 ? (
-                  <div className="text-sm text-gray-500">No villages</div>
-                ) : (
-                  <div className="border rounded overflow-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-100">
-                        <tr>
-                          <th className="p-2 border">Village Code</th>
-                          <th className="p-2 border">Village Name</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {parseVillages(selected.villages).map((v, idx) => (
-                          <tr key={idx} className={idx % 2 ? "bg-gray-50" : "bg-white"}>
-                            <td className="p-2 border">{v.village_code || "—"}</td>
-                            <td className="p-2 border">{v.village_name || "—"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </section>
-
-            </div>
-          </div>
+          </select>
         </div>
-      )}
-    </>
+
+        {/* Columns */}
+        <div className="flex flex-wrap items-center justify-between mb-4">
+          <details className="border px-3 py-2 rounded-md cursor-pointer">
+            <summary>Columns</summary>
+            <div className="mt-2 flex flex-col gap-1">
+              {table.getAllLeafColumns().map((col) => (
+                <label key={col.id} className="flex gap-2 items-center">
+                  <input
+                    type="checkbox"
+                    checked={col.getIsVisible()}
+                    onChange={col.getToggleVisibilityHandler()}
+                  />
+                  {col.id}
+                </label>
+              ))}
+            </div>
+          </details>
+
+          <span className="text-sm text-gray-700">
+            Showing {table.getFilteredRowModel().rows.length} of {data.length} records
+          </span>
+        </div>
+
+        {/* TABLE */}
+        <div className="w-full overflow-auto border rounded-md">
+          <table className="w-full text-sm border-collapse">
+            <thead className="bg-gray-100">
+              {table.getHeaderGroups().map((hg) => (
+                <tr key={hg.id}>
+                  {hg.headers.map((h) => (
+                    <th
+                      key={h.id}
+                      className="p-3 border-b font-semibold cursor-pointer"
+                      onClick={h.column.getToggleSortingHandler()}
+                    >
+                      {flexRender(h.column.columnDef.header, h.getContext())}
+                      {h.column.getIsSorted() === "asc" && " ▲"}
+                      {h.column.getIsSorted() === "desc" && " ▼"}
+                    </th>
+                  ))}
+                </tr>
+              ))}
+            </thead>
+
+            <tbody>
+              {table.getRowModel().rows.map((row, i) => (
+                <tr
+                  key={row.id}
+                  className={i % 2 === 0 ? "bg-white border-b" : "bg-gray-50 border-b"}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id} className="p-3">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        <div className="flex gap-3 items-center mt-4">
+          <button
+            className="border px-3 py-1 rounded disabled:opacity-50"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+          >
+            Prev
+          </button>
+
+          <span>
+            Page {pagination.pageIndex + 1} / {table.getPageCount()}
+          </span>
+
+          <button
+            className="border px-3 py-1 rounded disabled:opacity-50"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+          >
+            Next
+          </button>
+        </div>
+
+        {/* Modal */}
+        {selected && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <div className="bg-white w-[550px] max-h-[90vh] rounded-lg shadow-xl p-5 overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-semibold">Surveyor Details</h2>
+                <button className="text-gray-500 hover:text-black" onClick={() => setSelected(null)}>
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-4">
+
+                {/* Primary */}
+                <section>
+                  <h3 className="text-sm font-semibold mb-2">Primary</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <div className="text-xs text-gray-500">Name</div>
+                      <div className="text-sm">{safe(selected, "surveyor_name")}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500">ID</div>
+                      <div className="text-sm">{safe(selected, "surveyor_id")}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500">PIN</div>
+                      <div className="text-sm">{safe(selected, "surveyor_pin")}</div>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Location */}
+                <section>
+                  <h3 className="text-sm font-semibold mb-2">Location</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <div className="text-xs text-gray-500">State</div>
+                      <div className="text-sm">{safe(selected, "state")}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500">District</div>
+                      <div className="text-sm">{safe(selected, "district")}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500">Block</div>
+                      <div className="text-sm">{safe(selected, "block")}</div>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Villages */}
+                <section>
+                  <h3 className="text-sm font-semibold mb-2">Villages</h3>
+
+                  {parseVillages(selected.villages).length === 0 ? (
+                    <div className="text-sm text-gray-500">No villages listed</div>
+                  ) : (
+                    <div className="border rounded overflow-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-100">
+                          <tr>
+                            <th className="p-2 border">Village Code</th>
+                            <th className="p-2 border">Village Name</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {parseVillages(selected.villages).map((v, idx) => (
+                            <tr key={idx} className={idx % 2 ? "bg-gray-50" : "bg-white"}>
+                              <td className="p-2 border">{v.village_code || "—"}</td>
+                              <td className="p-2 border">{v.village_name || "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+
+              </div>
+            </div>
+          </div>
+        )}
+
+      </div>
+    </div>
   );
 }
