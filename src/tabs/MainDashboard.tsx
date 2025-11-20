@@ -465,8 +465,9 @@ export default function Dashboard(): JSX.Element {
                   <YAxis />
 
                   <Tooltip
-                    isAnimationActive={false}
-                    position={undefined}
+                    isAnimationActive={true}
+                    animationDuration={200}
+                    animationEasing="ease-in-out"
                     allowEscapeViewBox={{ x: true, y: true }}
                     cursor={{ strokeDasharray: "3 3" }}
                   />
@@ -477,6 +478,9 @@ export default function Dashboard(): JSX.Element {
                     stroke="#E65100"
                     strokeWidth={2}
                     dot={false}
+                    isAnimationActive={true}
+                    animationDuration={300}
+                    animationEasing="ease-in-out"
                   />
                 </LineChart>
               </ResponsiveContainer>
