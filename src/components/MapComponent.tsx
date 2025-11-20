@@ -1,7 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { ChevronDown, Layers, Map } from "lucide-react";
 import { mapLayers, MAHARASHTRA_CENTER, MAHARASHTRA_ZOOM, type MapLayer } from "../config/mapLayers";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+} from "./ui/dropdown-menu";
+import { Button } from "./ui/button";
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -201,83 +213,108 @@ export default function MapComponent({ height = "500px" }: MapComponentProps) {
     return acc;
   }, {} as Record<string, MapLayer[]>);
 
+  const visibleLayerCount = visibleLayers.size;
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex flex-wrap gap-4 flex-1">
-          {Object.entries(groupedLayers).map(([level, layers]) => (
-            <div key={level} className="flex-1 min-w-[200px]">
-              <h4 className="text-sm font-semibold mb-2 capitalize">{level}</h4>
-              <div className="space-y-1">
+      <div className="flex items-center gap-3 flex-wrap">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="gap-2">
+              <Layers className="h-4 w-4" />
+              Layers ({visibleLayerCount})
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-64">
+            {Object.entries(groupedLayers).map(([level, layers], idx) => (
+              <div key={level}>
+                {idx > 0 && <DropdownMenuSeparator />}
+                <DropdownMenuLabel className="capitalize">{level}</DropdownMenuLabel>
                 {layers.map(layer => (
-                  <div
+                  <DropdownMenuCheckboxItem
                     key={layer.id}
-                    className={`flex items-center gap-2 text-sm p-1 rounded ${
-                      selectedLayer === layer.id ? 'bg-green-50' : ''
-                    }`}
+                    checked={visibleLayers.has(layer.id)}
+                    onCheckedChange={() => toggleLayer(layer.id)}
+                    disabled={loading.has(layer.id)}
+                    className="gap-2"
                   >
-                    <label className="flex items-center gap-2 flex-1 cursor-pointer hover:bg-gray-50 rounded px-1">
-                      <input
-                        type="checkbox"
-                        checked={visibleLayers.has(layer.id)}
-                        onChange={() => toggleLayer(layer.id)}
-                        disabled={loading.has(layer.id)}
-                        className="cursor-pointer"
-                      />
-                      <span
-                        className="w-4 h-4 rounded border"
-                        style={{
-                          backgroundColor: layer.fillColor,
-                          borderColor: layer.color,
-                          borderWidth: 2,
-                        }}
-                      />
-                      <span className="flex-1">{layer.name}</span>
-                      {loading.has(layer.id) && (
-                        <span className="text-xs text-gray-500">Loading...</span>
-                      )}
-                    </label>
-                    {visibleLayers.has(layer.id) && !loading.has(layer.id) && (
-                      <button
-                        onClick={() => zoomToLayer(layer.id)}
-                        className="text-xs px-2 py-1 rounded bg-[#1B5E20] text-white hover:bg-[#2E7D32] transition-colors"
-                        title="Zoom to this layer"
-                      >
-                        Zoom
-                      </button>
+                    <span
+                      className="w-3 h-3 rounded border shrink-0"
+                      style={{
+                        backgroundColor: layer.fillColor,
+                        borderColor: layer.color,
+                        borderWidth: 2,
+                      }}
+                    />
+                    <span className="flex-1">{layer.name}</span>
+                    {loading.has(layer.id) && (
+                      <span className="text-xs text-muted-foreground">Loading...</span>
                     )}
-                  </div>
+                  </DropdownMenuCheckboxItem>
                 ))}
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-        <div className="flex flex-col gap-2">
-          <h4 className="text-sm font-semibold">Map View</h4>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setMapType('street')}
-              className={`px-3 py-2 text-sm rounded border transition-colors ${
-                mapType === 'street'
-                  ? 'bg-[#1B5E20] text-white border-[#1B5E20]'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              Street
-            </button>
-            <button
-              onClick={() => setMapType('satellite')}
-              className={`px-3 py-2 text-sm rounded border transition-colors ${
-                mapType === 'satellite'
-                  ? 'bg-[#1B5E20] text-white border-[#1B5E20]'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              Satellite
-            </button>
-          </div>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="gap-2">
+              <Map className="h-4 w-4" />
+              {mapType === 'street' ? 'Street View' : 'Satellite View'}
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-48">
+            <DropdownMenuLabel>Map Type</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuRadioGroup value={mapType} onValueChange={(value) => setMapType(value as MapType)}>
+              <DropdownMenuRadioItem value="street">
+                Street View
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="satellite">
+                Satellite View
+              </DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {visibleLayerCount > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                Zoom To
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48">
+              <DropdownMenuLabel>Zoom to Layer</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {Array.from(visibleLayers)
+                .map(layerId => mapLayers.find(l => l.id === layerId))
+                .filter((layer): layer is MapLayer => layer !== undefined)
+                .map(layer => (
+                  <DropdownMenuCheckboxItem
+                    key={layer.id}
+                    checked={selectedLayer === layer.id}
+                    onCheckedChange={() => zoomToLayer(layer.id)}
+                    className="gap-2"
+                  >
+                    <span
+                      className="w-3 h-3 rounded border shrink-0"
+                      style={{
+                        backgroundColor: layer.fillColor,
+                        borderColor: layer.color,
+                        borderWidth: 2,
+                      }}
+                    />
+                    {layer.name}
+                  </DropdownMenuCheckboxItem>
+                ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       {error && (
