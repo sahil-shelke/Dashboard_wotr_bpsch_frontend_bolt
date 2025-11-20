@@ -433,8 +433,21 @@ export default function Dashboard(): JSX.Element {
                     <YAxis />
 
                     <Tooltip
-                      isAnimationActive={false}
-                      position={undefined}
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-white border border-gray-300 rounded shadow-lg p-2">
+                              {payload.map((entry: any, index: number) => (
+                                <div key={index} className="text-sm">
+                                  <span style={{ color: entry.color }}>{entry.name}: </span>
+                                  <span className="font-semibold">{entry.value}</span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
                       cursor={{ strokeDasharray: "3 3" }}
                     />
 
@@ -481,10 +494,20 @@ export default function Dashboard(): JSX.Element {
                     <YAxis />
 
                     <Tooltip
-                      isAnimationActive={true}
-                      animationDuration={200}
-                      animationEasing="ease-in-out"
-                      allowEscapeViewBox={{ x: true, y: true }}
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-white border border-gray-300 rounded shadow-lg p-3">
+                              <p className="text-sm font-semibold">{payload[0].payload.date}</p>
+                              <p className="text-sm">
+                                <span className="font-medium">Temperature: </span>
+                                <span className="font-bold" style={{ color: "#E65100" }}>{payload[0].value}°C</span>
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
                       cursor={{ strokeDasharray: "3 3" }}
                     />
 
@@ -494,9 +517,6 @@ export default function Dashboard(): JSX.Element {
                       stroke="#E65100"
                       strokeWidth={2}
                       dot={false}
-                      isAnimationActive={true}
-                      animationDuration={300}
-                      animationEasing="ease-in-out"
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -521,10 +541,20 @@ export default function Dashboard(): JSX.Element {
                     <YAxis />
 
                     <Tooltip
-                      isAnimationActive={true}
-                      animationDuration={200}
-                      animationEasing="ease-in-out"
-                      allowEscapeViewBox={{ x: true, y: true }}
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-white border border-gray-300 rounded shadow-lg p-3">
+                              <p className="text-sm font-semibold">{payload[0].payload.date}</p>
+                              <p className="text-sm">
+                                <span className="font-medium">Rainfall: </span>
+                                <span className="font-bold" style={{ color: "#0288D1" }}>{payload[0].value} mm</span>
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
                       cursor={{ strokeDasharray: "3 3" }}
                     />
 
@@ -534,9 +564,6 @@ export default function Dashboard(): JSX.Element {
                       stroke="#0288D1"
                       strokeWidth={2}
                       dot={false}
-                      isAnimationActive={true}
-                      animationDuration={300}
-                      animationEasing="ease-in-out"
                     />
                   </LineChart>
                 </ResponsiveContainer>
