@@ -25,14 +25,14 @@ export default function MapComponent({ height = "500px" }: MapComponentProps) {
   const markersRef = useRef(new Map<string, L.Marker>());
   const baseTileLayerRef = useRef<L.TileLayer | null>(null);
 
-  const [visibleLayers, setVisibleLayers] = useState<Set<string>>(new Set(["maharashtra", "district"]));
+  const [visibleLayers, setVisibleLayers] = useState<Set<string>>(new Set(["maharashtra", "districts"]));
   const [loading, setLoading] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [loadedData, setLoadedData] = useState<Map<string, GeoJSON.FeatureCollection>>(new Map());
   const [selectedLayer, setSelectedLayer] = useState<string | null>(null);
   const [mapType, setMapType] = useState<MapType>("street");
 
-  const staticLayers = new Set(["maharashtra", "district"]);
+  const staticLayers = new Set(["maharashtra", "districts"]);
 
   useEffect(() => {
     if (!containerRef.current) return;

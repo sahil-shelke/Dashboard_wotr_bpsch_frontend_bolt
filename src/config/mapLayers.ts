@@ -14,20 +14,20 @@ export const mapLayers: MapLayer[] = [
     id: 'maharashtra',
     name: 'Maharashtra',
     path: '/geojson/maharashtra.geojson',
-    color: '#1B5E20',
-    fillColor: '#66BB6A',
+    color: '#000000',
+    fillColor: 'transparent',
     weight: 3,
-    fillOpacity: 0.1,
+    fillOpacity: 0,
     level: 'state'
   },
   {
     id: 'districts',
     name: 'Districts',
     path: '/geojson/districts.geojson',
-    color: '#2E7D32',
-    fillColor: '#81C784',
+    color: '#000000',
+    fillColor: 'transparent',
     weight: 2,
-    fillOpacity: 0.2,
+    fillOpacity: 0,
     level: 'district'
   },
   {
