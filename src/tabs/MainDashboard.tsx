@@ -58,7 +58,6 @@ export default function Dashboard(): JSX.Element {
 
   const [soilReadings, setSoilReadings] = useState<any[]>([]);
   const [temperature, setTemperature] = useState<any[]>([]);
-  const [farmSummary, setFarmSummary] = useState<any[]>([]);
 
   const [mode, setMode] = useState<"sensor" | "farm">("sensor");
 
@@ -107,21 +106,10 @@ export default function Dashboard(): JSX.Element {
       )
         .then(r => r.json())
         .catch(() => []),
-
-      fetch(
-        `http://localhost:5000/api/farm-management/farm-summary?village_code=${encodeURIComponent(
-          villageCode
-        )}`
-      )
-        .then(r => r.json())
-        .catch(() => []),
     ])
-      .then(([soilRes, tempRes, summaryRes]) => {
+      .then(([soilRes, tempRes]) => {
         setSoilReadings(Array.isArray(soilRes) ? soilRes : []);
 
-        // --------------------------
-        // FIX: Use reading_time
-        // --------------------------
         setTemperature(
           Array.isArray(tempRes)
             ? tempRes.map((item) => ({
@@ -134,8 +122,6 @@ export default function Dashboard(): JSX.Element {
               }))
             : []
         );
-
-        setFarmSummary(Array.isArray(summaryRes) ? summaryRes : []);
       })
       .catch(() => setError("Failed fetching data"))
       .finally(() => setLoading(false));
@@ -462,77 +448,46 @@ export default function Dashboard(): JSX.Element {
           </div>
         </div>
 
+        {/* TEMPERATURE */}
+        <div className="bg-white rounded-xl border p-4 shadow-sm mb-6">
+          <h3 className="text-md font-semibold mb-3">Temperature</h3>
+
+          <div style={{ height: 250 }}>
+            {temperature.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-gray-500">
+                No temperature data
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={temperature} key={temperature.length}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+
+                  <Tooltip
+                    isAnimationActive={false}
+                    position={undefined}
+                    allowEscapeViewBox={{ x: true, y: true }}
+                    cursor={{ strokeDasharray: "3 3" }}
+                  />
+
+                  <Line
+                    dataKey="value"
+                    name="°C"
+                    stroke="#E65100"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+
         {/* MAP SECTION */}
         <div className="bg-white rounded-xl border p-4 shadow-sm mb-6">
           <h3 className="text-md font-semibold mb-3">Geographic View</h3>
           <MapComponent height="500px" />
-        </div>
-
-        {/* TEMPERATURE */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 bg-white rounded-xl border p-4 shadow-sm">
-            <h3 className="text-md font-semibold mb-3">Temperature</h3>
-
-            <div style={{ height: 180 }}>
-              {temperature.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-gray-500">
-                  No temperature data
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={temperature} key={temperature.length}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-
-                    {/* FINAL tooltip fix */}
-                    <Tooltip
-                      isAnimationActive={false}
-                      position={undefined}
-                      allowEscapeViewBox={{ x: true, y: true }}
-                      cursor={{ strokeDasharray: "3 3" }}
-                    />
-
-                    <Line
-                      dataKey="value"
-                      name="°C"
-                      stroke="#E65100"
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </div>
-
-          {/* SUMMARY */}
-          <div className="bg-white rounded-xl border p-4 shadow-sm">
-            <h3 className="text-md font-semibold mb-3">Farm Summary</h3>
-
-            {farmSummary.length === 0 ? (
-              <div className="text-gray-500">No summary data</div>
-            ) : (
-              <table className="w-full text-sm border">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="border p-2 text-left">Farmer</th>
-                    <th className="border p-2 text-left">Sensors</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {farmerNames.map(farmer => (
-                    <tr key={farmer}>
-                      <td className="border p-2">{farmer}</td>
-                      <td className="border p-2">
-                        {(farmerToSensors[farmer] ?? []).join(", ")}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
         </div>
 
         {error && <div className="text-red-500 mt-4">{error}</div>}
