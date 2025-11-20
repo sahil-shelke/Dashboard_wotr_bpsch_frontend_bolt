@@ -65,8 +65,6 @@ export default function Dashboard(): JSX.Element {
   const [visibleSensors, setVisibleSensors] = useState<Record<string, boolean>>({});
   const [visibleFarms, setVisibleFarms] = useState<Record<string, boolean>>({});
 
-  const [geojsonData, setGeojsonData] = useState<GeoJSON.FeatureCollection | null>(null);
-
   // ------------------------------------------------------------
   // Load villages initially
   // ------------------------------------------------------------
@@ -275,22 +273,6 @@ export default function Dashboard(): JSX.Element {
   const getFarmerForSensor = (s: string) =>
     sensorToFarmer.get(s) ?? "Unknown Farmer";
 
-  const handleGeojsonUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const json = JSON.parse(event.target?.result as string);
-        setGeojsonData(json);
-      } catch (err) {
-        setError("Failed to parse GeoJSON file");
-      }
-    };
-    reader.readAsText(file);
-  };
-
   // ------------------------------------------------------------
   // Render
   // ------------------------------------------------------------
@@ -482,21 +464,8 @@ export default function Dashboard(): JSX.Element {
 
         {/* MAP SECTION */}
         <div className="bg-white rounded-xl border p-4 shadow-sm mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-md font-semibold">Geographic View</h3>
-            <div>
-              <label className="px-4 py-2 border rounded bg-white cursor-pointer hover:bg-gray-50">
-                Upload GeoJSON
-                <input
-                  type="file"
-                  accept=".json,.geojson"
-                  onChange={handleGeojsonUpload}
-                  className="hidden"
-                />
-              </label>
-            </div>
-          </div>
-          <MapComponent geojsonData={geojsonData} height="400px" />
+          <h3 className="text-md font-semibold mb-3">Geographic View</h3>
+          <MapComponent height="500px" />
         </div>
 
         {/* TEMPERATURE */}
