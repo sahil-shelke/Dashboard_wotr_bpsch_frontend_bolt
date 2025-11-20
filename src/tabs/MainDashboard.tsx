@@ -433,20 +433,18 @@ export default function Dashboard(): JSX.Element {
                     <YAxis />
 
                     <Tooltip
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          return (
-                            <div className="bg-white border border-gray-300 rounded shadow-lg p-2">
-                              {payload.map((entry: any, index: number) => (
-                                <div key={index} className="text-sm">
-                                  <span style={{ color: entry.color }}>{entry.name}: </span>
-                                  <span className="font-semibold">{entry.value}</span>
-                                </div>
-                              ))}
-                            </div>
-                          );
-                        }
-                        return null;
+                      wrapperStyle={{ zIndex: 1000 }}
+                      contentStyle={{
+                        backgroundColor: "white",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "8px",
+                        padding: "12px",
+                        boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                      }}
+                      labelStyle={{
+                        fontWeight: 600,
+                        fontSize: "14px",
+                        marginBottom: "4px",
                       }}
                       cursor={{ strokeDasharray: "3 3" }}
                     />
@@ -494,29 +492,35 @@ export default function Dashboard(): JSX.Element {
                     <YAxis />
 
                     <Tooltip
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          return (
-                            <div className="bg-white border border-gray-300 rounded shadow-lg p-3">
-                              <p className="text-sm font-semibold">{payload[0].payload.date}</p>
-                              <p className="text-sm">
-                                <span className="font-medium">Temperature: </span>
-                                <span className="font-bold" style={{ color: "#E65100" }}>{payload[0].value}°C</span>
-                              </p>
-                            </div>
-                          );
-                        }
-                        return null;
+                      wrapperStyle={{ zIndex: 1000 }}
+                      contentStyle={{
+                        backgroundColor: "white",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "8px",
+                        padding: "12px",
+                        boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
                       }}
+                      labelStyle={{
+                        fontWeight: 600,
+                        fontSize: "14px",
+                        marginBottom: "4px",
+                      }}
+                      itemStyle={{
+                        fontSize: "14px",
+                        color: "#E65100",
+                        fontWeight: 700,
+                      }}
+                      formatter={(value: any) => [`${value}°C`, "Temperature"]}
                       cursor={{ strokeDasharray: "3 3" }}
                     />
 
                     <Line
                       dataKey="value"
-                      name="°C"
+                      name="Temperature"
                       stroke="#E65100"
                       strokeWidth={2}
                       dot={false}
+                      activeDot={{ r: 6 }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -541,29 +545,35 @@ export default function Dashboard(): JSX.Element {
                     <YAxis />
 
                     <Tooltip
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          return (
-                            <div className="bg-white border border-gray-300 rounded shadow-lg p-3">
-                              <p className="text-sm font-semibold">{payload[0].payload.date}</p>
-                              <p className="text-sm">
-                                <span className="font-medium">Rainfall: </span>
-                                <span className="font-bold" style={{ color: "#0288D1" }}>{payload[0].value} mm</span>
-                              </p>
-                            </div>
-                          );
-                        }
-                        return null;
+                      wrapperStyle={{ zIndex: 1000 }}
+                      contentStyle={{
+                        backgroundColor: "white",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "8px",
+                        padding: "12px",
+                        boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
                       }}
+                      labelStyle={{
+                        fontWeight: 600,
+                        fontSize: "14px",
+                        marginBottom: "4px",
+                      }}
+                      itemStyle={{
+                        fontSize: "14px",
+                        color: "#0288D1",
+                        fontWeight: 700,
+                      }}
+                      formatter={(value: any) => [`${value} mm`, "Rainfall"]}
                       cursor={{ strokeDasharray: "3 3" }}
                     />
 
                     <Line
                       dataKey="value"
-                      name="mm"
+                      name="Rainfall"
                       stroke="#0288D1"
                       strokeWidth={2}
                       dot={false}
+                      activeDot={{ r: 6 }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
