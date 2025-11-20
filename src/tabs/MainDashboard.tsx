@@ -433,7 +433,7 @@ export default function Dashboard(): JSX.Element {
                     <YAxis />
 
                     <Tooltip
-                      wrapperStyle={{ zIndex: 1000 }}
+                      wrapperStyle={{ zIndex: 1000, pointerEvents: "none" }}
                       contentStyle={{
                         backgroundColor: "white",
                         border: "1px solid #d1d5db",
@@ -446,7 +446,9 @@ export default function Dashboard(): JSX.Element {
                         fontSize: "14px",
                         marginBottom: "4px",
                       }}
-                      cursor={{ strokeDasharray: "3 3" }}
+                      cursor={false}
+                      allowEscapeViewBox={{ x: true, y: true }}
+                      isAnimationActive={false}
                     />
 
                     <Legend />
@@ -492,7 +494,7 @@ export default function Dashboard(): JSX.Element {
                     <YAxis />
 
                     <Tooltip
-                      wrapperStyle={{ zIndex: 1000 }}
+                      wrapperStyle={{ zIndex: 1000, pointerEvents: "none" }}
                       contentStyle={{
                         backgroundColor: "white",
                         border: "1px solid #d1d5db",
@@ -511,7 +513,9 @@ export default function Dashboard(): JSX.Element {
                         fontWeight: 700,
                       }}
                       formatter={(value: any) => [`${value}°C`, "Temperature"]}
-                      cursor={{ strokeDasharray: "3 3" }}
+                      cursor={false}
+                      allowEscapeViewBox={{ x: true, y: true }}
+                      isAnimationActive={false}
                     />
 
                     <Line
@@ -545,7 +549,7 @@ export default function Dashboard(): JSX.Element {
                     <YAxis />
 
                     <Tooltip
-                      wrapperStyle={{ zIndex: 1000 }}
+                      wrapperStyle={{ zIndex: 1000, pointerEvents: "none" }}
                       contentStyle={{
                         backgroundColor: "white",
                         border: "1px solid #d1d5db",
@@ -564,7 +568,9 @@ export default function Dashboard(): JSX.Element {
                         fontWeight: 700,
                       }}
                       formatter={(value: any) => [`${value} mm`, "Rainfall"]}
-                      cursor={{ strokeDasharray: "3 3" }}
+                      cursor={false}
+                      allowEscapeViewBox={{ x: true, y: true }}
+                      isAnimationActive={false}
                     />
 
                     <Line
