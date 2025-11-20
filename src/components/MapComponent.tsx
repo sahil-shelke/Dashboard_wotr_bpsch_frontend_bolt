@@ -18,6 +18,7 @@ export default function MapComponent({ height = "500px" }: MapComponentProps) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const layersRef = useRef<Map<string, L.GeoJSON>>(new Map());
+  const markersRef = useRef<Map<string, L.Marker>>(new Map());
 
   const [visibleLayers, setVisibleLayers] = useState<Set<string>>(
     new Set(['maharashtra'])
@@ -25,6 +26,7 @@ export default function MapComponent({ height = "500px" }: MapComponentProps) {
   const [loading, setLoading] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [loadedData, setLoadedData] = useState<Map<string, GeoJSON.FeatureCollection>>(new Map());
+  const [selectedLayer, setSelectedLayer] = useState<string | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -105,6 +107,18 @@ export default function MapComponent({ height = "500px" }: MapComponentProps) {
             }).addTo(mapRef.current!);
 
             layersRef.current.set(layer.id, geoJsonLayer);
+
+            if (layer.level === 'cluster' && data.features.length > 0) {
+              const bounds = geoJsonLayer.getBounds();
+              const center = bounds.getCenter();
+
+              const marker = L.marker(center, {
+                title: layer.name,
+              }).addTo(mapRef.current!);
+
+              marker.bindPopup(`<strong>${layer.name}</strong>`);
+              markersRef.current.set(layer.id, marker);
+            }
           }
         }
       } else {
@@ -113,15 +127,37 @@ export default function MapComponent({ height = "500px" }: MapComponentProps) {
           mapRef.current.removeLayer(existingLayer);
           layersRef.current.delete(layer.id);
         }
+
+        const existingMarker = markersRef.current.get(layer.id);
+        if (existingMarker && mapRef.current) {
+          mapRef.current.removeLayer(existingMarker);
+          markersRef.current.delete(layer.id);
+        }
       }
     });
   }, [visibleLayers, loadedData]);
+
+  const zoomToLayer = (layerId: string) => {
+    if (!mapRef.current) return;
+
+    const geoJsonLayer = layersRef.current.get(layerId);
+    if (geoJsonLayer) {
+      const bounds = geoJsonLayer.getBounds();
+      if (bounds.isValid()) {
+        mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+        setSelectedLayer(layerId);
+      }
+    }
+  };
 
   const toggleLayer = (layerId: string) => {
     setVisibleLayers(prev => {
       const next = new Set(prev);
       if (next.has(layerId)) {
         next.delete(layerId);
+        if (selectedLayer === layerId) {
+          setSelectedLayer(null);
+        }
       } else {
         next.add(layerId);
       }
@@ -143,30 +179,43 @@ export default function MapComponent({ height = "500px" }: MapComponentProps) {
             <h4 className="text-sm font-semibold mb-2 capitalize">{level}</h4>
             <div className="space-y-1">
               {layers.map(layer => (
-                <label
+                <div
                   key={layer.id}
-                  className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 p-1 rounded"
+                  className={`flex items-center gap-2 text-sm p-1 rounded ${
+                    selectedLayer === layer.id ? 'bg-green-50' : ''
+                  }`}
                 >
-                  <input
-                    type="checkbox"
-                    checked={visibleLayers.has(layer.id)}
-                    onChange={() => toggleLayer(layer.id)}
-                    disabled={loading.has(layer.id)}
-                    className="cursor-pointer"
-                  />
-                  <span
-                    className="w-4 h-4 rounded border"
-                    style={{
-                      backgroundColor: layer.fillColor,
-                      borderColor: layer.color,
-                      borderWidth: 2,
-                    }}
-                  />
-                  <span>{layer.name}</span>
-                  {loading.has(layer.id) && (
-                    <span className="text-xs text-gray-500">Loading...</span>
+                  <label className="flex items-center gap-2 flex-1 cursor-pointer hover:bg-gray-50 rounded px-1">
+                    <input
+                      type="checkbox"
+                      checked={visibleLayers.has(layer.id)}
+                      onChange={() => toggleLayer(layer.id)}
+                      disabled={loading.has(layer.id)}
+                      className="cursor-pointer"
+                    />
+                    <span
+                      className="w-4 h-4 rounded border"
+                      style={{
+                        backgroundColor: layer.fillColor,
+                        borderColor: layer.color,
+                        borderWidth: 2,
+                      }}
+                    />
+                    <span className="flex-1">{layer.name}</span>
+                    {loading.has(layer.id) && (
+                      <span className="text-xs text-gray-500">Loading...</span>
+                    )}
+                  </label>
+                  {visibleLayers.has(layer.id) && !loading.has(layer.id) && (
+                    <button
+                      onClick={() => zoomToLayer(layer.id)}
+                      className="text-xs px-2 py-1 rounded bg-[#1B5E20] text-white hover:bg-[#2E7D32] transition-colors"
+                      title="Zoom to this layer"
+                    >
+                      Zoom
+                    </button>
                   )}
-                </label>
+                </div>
               ))}
             </div>
           </div>
