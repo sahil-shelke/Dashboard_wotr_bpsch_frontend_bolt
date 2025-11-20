@@ -14,11 +14,14 @@ interface MapComponentProps {
   height?: string;
 }
 
+type MapType = 'street' | 'satellite';
+
 export default function MapComponent({ height = "500px" }: MapComponentProps) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const layersRef = useRef<Map<string, L.GeoJSON>>(new Map());
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
+  const baseTileLayerRef = useRef<L.TileLayer | null>(null);
 
   const [visibleLayers, setVisibleLayers] = useState<Set<string>>(
     new Set(['maharashtra'])
@@ -27,6 +30,7 @@ export default function MapComponent({ height = "500px" }: MapComponentProps) {
   const [error, setError] = useState<string | null>(null);
   const [loadedData, setLoadedData] = useState<Map<string, GeoJSON.FeatureCollection>>(new Map());
   const [selectedLayer, setSelectedLayer] = useState<string | null>(null);
+  const [mapType, setMapType] = useState<MapType>('street');
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -34,7 +38,7 @@ export default function MapComponent({ height = "500px" }: MapComponentProps) {
     if (!mapRef.current) {
       mapRef.current = L.map(containerRef.current).setView(MAHARASHTRA_CENTER, MAHARASHTRA_ZOOM);
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      baseTileLayerRef.current = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 18,
         minZoom: 6,
@@ -48,6 +52,32 @@ export default function MapComponent({ height = "500px" }: MapComponentProps) {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!mapRef.current || !baseTileLayerRef.current) return;
+
+    mapRef.current.removeLayer(baseTileLayerRef.current);
+
+    if (mapType === 'satellite') {
+      baseTileLayerRef.current = L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        {
+          attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+          maxZoom: 18,
+          minZoom: 6,
+        }
+      ).addTo(mapRef.current);
+    } else {
+      baseTileLayerRef.current = L.tileLayer(
+        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          maxZoom: 18,
+          minZoom: 6,
+        }
+      ).addTo(mapRef.current);
+    }
+  }, [mapType]);
 
   const loadLayer = async (layer: MapLayer) => {
     if (loadedData.has(layer.id)) return;
@@ -173,53 +203,81 @@ export default function MapComponent({ height = "500px" }: MapComponentProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-4">
-        {Object.entries(groupedLayers).map(([level, layers]) => (
-          <div key={level} className="flex-1 min-w-[200px]">
-            <h4 className="text-sm font-semibold mb-2 capitalize">{level}</h4>
-            <div className="space-y-1">
-              {layers.map(layer => (
-                <div
-                  key={layer.id}
-                  className={`flex items-center gap-2 text-sm p-1 rounded ${
-                    selectedLayer === layer.id ? 'bg-green-50' : ''
-                  }`}
-                >
-                  <label className="flex items-center gap-2 flex-1 cursor-pointer hover:bg-gray-50 rounded px-1">
-                    <input
-                      type="checkbox"
-                      checked={visibleLayers.has(layer.id)}
-                      onChange={() => toggleLayer(layer.id)}
-                      disabled={loading.has(layer.id)}
-                      className="cursor-pointer"
-                    />
-                    <span
-                      className="w-4 h-4 rounded border"
-                      style={{
-                        backgroundColor: layer.fillColor,
-                        borderColor: layer.color,
-                        borderWidth: 2,
-                      }}
-                    />
-                    <span className="flex-1">{layer.name}</span>
-                    {loading.has(layer.id) && (
-                      <span className="text-xs text-gray-500">Loading...</span>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex flex-wrap gap-4 flex-1">
+          {Object.entries(groupedLayers).map(([level, layers]) => (
+            <div key={level} className="flex-1 min-w-[200px]">
+              <h4 className="text-sm font-semibold mb-2 capitalize">{level}</h4>
+              <div className="space-y-1">
+                {layers.map(layer => (
+                  <div
+                    key={layer.id}
+                    className={`flex items-center gap-2 text-sm p-1 rounded ${
+                      selectedLayer === layer.id ? 'bg-green-50' : ''
+                    }`}
+                  >
+                    <label className="flex items-center gap-2 flex-1 cursor-pointer hover:bg-gray-50 rounded px-1">
+                      <input
+                        type="checkbox"
+                        checked={visibleLayers.has(layer.id)}
+                        onChange={() => toggleLayer(layer.id)}
+                        disabled={loading.has(layer.id)}
+                        className="cursor-pointer"
+                      />
+                      <span
+                        className="w-4 h-4 rounded border"
+                        style={{
+                          backgroundColor: layer.fillColor,
+                          borderColor: layer.color,
+                          borderWidth: 2,
+                        }}
+                      />
+                      <span className="flex-1">{layer.name}</span>
+                      {loading.has(layer.id) && (
+                        <span className="text-xs text-gray-500">Loading...</span>
+                      )}
+                    </label>
+                    {visibleLayers.has(layer.id) && !loading.has(layer.id) && (
+                      <button
+                        onClick={() => zoomToLayer(layer.id)}
+                        className="text-xs px-2 py-1 rounded bg-[#1B5E20] text-white hover:bg-[#2E7D32] transition-colors"
+                        title="Zoom to this layer"
+                      >
+                        Zoom
+                      </button>
                     )}
-                  </label>
-                  {visibleLayers.has(layer.id) && !loading.has(layer.id) && (
-                    <button
-                      onClick={() => zoomToLayer(layer.id)}
-                      className="text-xs px-2 py-1 rounded bg-[#1B5E20] text-white hover:bg-[#2E7D32] transition-colors"
-                      title="Zoom to this layer"
-                    >
-                      Zoom
-                    </button>
-                  )}
-                </div>
-              ))}
+                  </div>
+                ))}
+              </div>
             </div>
+          ))}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <h4 className="text-sm font-semibold">Map View</h4>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setMapType('street')}
+              className={`px-3 py-2 text-sm rounded border transition-colors ${
+                mapType === 'street'
+                  ? 'bg-[#1B5E20] text-white border-[#1B5E20]'
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              Street
+            </button>
+            <button
+              onClick={() => setMapType('satellite')}
+              className={`px-3 py-2 text-sm rounded border transition-colors ${
+                mapType === 'satellite'
+                  ? 'bg-[#1B5E20] text-white border-[#1B5E20]'
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              Satellite
+            </button>
           </div>
-        ))}
+        </div>
       </div>
 
       {error && (
