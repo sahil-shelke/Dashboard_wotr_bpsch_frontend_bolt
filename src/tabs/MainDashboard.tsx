@@ -58,6 +58,7 @@ export default function Dashboard(): JSX.Element {
 
   const [soilReadings, setSoilReadings] = useState<any[]>([]);
   const [temperature, setTemperature] = useState<any[]>([]);
+  const [rainfall, setRainfall] = useState<any[]>([]);
 
   const [mode, setMode] = useState<"sensor" | "farm">("sensor");
 
@@ -119,6 +120,19 @@ export default function Dashboard(): JSX.Element {
                     item.date_time?.split("T")[0] ??
                     ""),
                 value: Number(item.temp_c ?? item.temp ?? 0),
+              }))
+            : []
+        );
+
+        setRainfall(
+          Array.isArray(tempRes)
+            ? tempRes.map((item) => ({
+                date: item.reading_time
+                  ? formatReadingTime(item.reading_time)
+                  : (item.date ??
+                    item.date_time?.split("T")[0] ??
+                    ""),
+                value: Number(item.rain_mm ?? 0),
               }))
             : []
         );
@@ -448,43 +462,86 @@ export default function Dashboard(): JSX.Element {
           </div>
         </div>
 
-        {/* TEMPERATURE */}
-        <div className="bg-white rounded-xl border p-4 shadow-sm mb-6">
-          <h3 className="text-md font-semibold mb-3">Temperature</h3>
+        {/* TEMPERATURE & RAINFALL */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {/* TEMPERATURE */}
+          <div className="bg-white rounded-xl border p-4 shadow-sm">
+            <h3 className="text-md font-semibold mb-3">Temperature</h3>
 
-          <div style={{ height: 250 }}>
-            {temperature.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-gray-500">
-                No temperature data
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={temperature} key={temperature.length}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
+            <div style={{ height: 250 }}>
+              {temperature.length === 0 ? (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  No temperature data
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={temperature} key={temperature.length}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
 
-                  <Tooltip
-                    isAnimationActive={true}
-                    animationDuration={200}
-                    animationEasing="ease-in-out"
-                    allowEscapeViewBox={{ x: true, y: true }}
-                    cursor={{ strokeDasharray: "3 3" }}
-                  />
+                    <Tooltip
+                      isAnimationActive={true}
+                      animationDuration={200}
+                      animationEasing="ease-in-out"
+                      allowEscapeViewBox={{ x: true, y: true }}
+                      cursor={{ strokeDasharray: "3 3" }}
+                    />
 
-                  <Line
-                    dataKey="value"
-                    name="°C"
-                    stroke="#E65100"
-                    strokeWidth={2}
-                    dot={false}
-                    isAnimationActive={true}
-                    animationDuration={300}
-                    animationEasing="ease-in-out"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
+                    <Line
+                      dataKey="value"
+                      name="°C"
+                      stroke="#E65100"
+                      strokeWidth={2}
+                      dot={false}
+                      isAnimationActive={true}
+                      animationDuration={300}
+                      animationEasing="ease-in-out"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+
+          {/* RAINFALL */}
+          <div className="bg-white rounded-xl border p-4 shadow-sm">
+            <h3 className="text-md font-semibold mb-3">Rainfall</h3>
+
+            <div style={{ height: 250 }}>
+              {rainfall.length === 0 ? (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  No rainfall data
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={rainfall} key={rainfall.length}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+
+                    <Tooltip
+                      isAnimationActive={true}
+                      animationDuration={200}
+                      animationEasing="ease-in-out"
+                      allowEscapeViewBox={{ x: true, y: true }}
+                      cursor={{ strokeDasharray: "3 3" }}
+                    />
+
+                    <Line
+                      dataKey="value"
+                      name="mm"
+                      stroke="#0288D1"
+                      strokeWidth={2}
+                      dot={false}
+                      isAnimationActive={true}
+                      animationDuration={300}
+                      animationEasing="ease-in-out"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </div>
           </div>
         </div>
 
