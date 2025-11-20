@@ -88,7 +88,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   <Sprout className="h-5 w-5" />
                 </div>
                 <div className="flex flex-col gap-0.5">
-                  <span className="font-semibold text-[#2E3A3F]">AgriAdvisory</span>
+                  <span className="font-semibold text-[#2E3A3F]">WOTR SURVEYOR</span>
                   <span className="text-xs text-[#2E3A3F]/70">Farm Management System</span>
                 </div>
               </a>

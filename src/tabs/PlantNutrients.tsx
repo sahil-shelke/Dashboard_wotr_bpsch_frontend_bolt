@@ -13,12 +13,10 @@ import {
   type VisibilityState,
 } from "@tanstack/react-table";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useEffect, useState } from "react";
+import { THEME } from "../utils/theme";
 
-// ------------------------------
-// Types
-// ------------------------------
-type NutrientReading = {
+export type NutrientReading = {
   SPAD1?: string;
   SPAD2?: string;
   SPAD3?: string;
@@ -47,15 +45,25 @@ export type NutrientRecord = {
   village_name: string;
   block_name: string;
   district_name: string;
-  crop_registration_id: string;
 
   nutrient_data: string; // JSON string
   nutrient_count: number;
 };
 
-// ------------------------------
-// Helpers (kept from original)
-// ------------------------------
+const schemaFields: (keyof NutrientRecord)[] = [
+  "farmer_name",
+  "farmer_mobile",
+  "crop_name_en",
+  "surveyor_name",
+  "surveyor_id",
+  "village_name",
+  "block_name",
+  "district_name",
+  "nutrient_count",
+  "nutrient_data",
+];
+
+// helpers
 function parseNutrientData(str?: string): NutrientReading[] {
   if (!str) return [];
   try {
@@ -91,21 +99,23 @@ function readingHasData(rd: NutrientReading) {
   });
 }
 
-function getStatus(rec: NutrientRecord) {
+function getStatus(rec: NutrientRecord | null) {
+  if (!rec) return "not_filled";
   const arr = parseNutrientData(rec.nutrient_data);
   if (arr.length === 0) return "not_filled";
-
   const flags = arr.map((r) => readingHasData(r));
   if (flags.every((f) => !f)) return "not_filled";
   if (flags.every((f) => f)) return "filled";
   return "partial";
 }
 
-function firstDate(rec: NutrientRecord) {
+function firstDate(rec: NutrientRecord | null) {
+  if (!rec) return "";
   const arr = parseNutrientData(rec.nutrient_data);
   return arr[0]?.reading_date || "";
 }
-function lastDate(rec: NutrientRecord) {
+function lastDate(rec: NutrientRecord | null) {
+  if (!rec) return "";
   const arr = parseNutrientData(rec.nutrient_data);
   return arr[arr.length - 1]?.reading_date || "";
 }
@@ -118,39 +128,31 @@ function safeVal(obj: any, key: string) {
   return v;
 }
 
-// ------------------------------
-// Component
-// ------------------------------
 export default function NutrientMonitoringTable() {
   const [data, setData] = useState<NutrientRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<NutrientRecord | null>(null);
 
-  // FILTER STATES
-  const [statusFilter, setStatusFilter] = useState<"all" | "filled" | "partial" | "not_filled">(
-    "all"
-  );
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "filled" | "partial" | "not_filled"
+  >("all");
   const [districtFilter, setDistrictFilter] = useState<string>("");
   const [blockFilter, setBlockFilter] = useState<string>("");
   const [villageFilter, setVillageFilter] = useState<string>("");
   const [globalFilter, setGlobalFilter] = useState<string>("");
 
+  const [showColumnMenu, setShowColumnMenu] = useState(false);
+
   const columnHelper = createColumnHelper<NutrientRecord>();
 
-  // --------------------------------------------
-  // Table Columns (NO STATUS COLUMN OUTSIDE)
-  // --------------------------------------------
   const columns = [
-    // Hidden searchable
     columnHelper.accessor("farmer_name", { header: "Farmer" }),
     columnHelper.accessor("crop_name_en", { header: "Crop" }),
     columnHelper.accessor("surveyor_name", { header: "Surveyor Name" }),
     columnHelper.accessor("village_name", { header: "Village" }),
     columnHelper.accessor("block_name", { header: "Block" }),
     columnHelper.accessor("district_name", { header: "District" }),
-    columnHelper.accessor("crop_registration_id", { header: "Crop Reg ID" }),
 
-    // Visible
     columnHelper.accessor("surveyor_id", { header: "Surveyor ID" }),
     columnHelper.accessor("farmer_mobile", { header: "Mobile" }),
     columnHelper.accessor("nutrient_count", { header: "Count" }),
@@ -172,7 +174,7 @@ export default function NutrientMonitoringTable() {
       header: "Actions",
       cell: ({ row }) => (
         <button
-          className="px-3 py-1 text-sm rounded bg-blue-600 text-white"
+          className={THEME.buttons.primary}
           onClick={() => setSelected(row.original)}
         >
           View
@@ -181,15 +183,14 @@ export default function NutrientMonitoringTable() {
     }),
   ];
 
-  // --------------------------------------------
-  // Fetch data
-  // --------------------------------------------
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("http://localhost:5000/api/farm-management/plant-nutrients");
+        const res = await fetch(
+          "http://localhost:5000/api/farm-management/plant-nutrients"
+        );
         const json = await res.json();
-        setData(json);
+        setData(Array.isArray(json) ? json : []);
       } finally {
         setLoading(false);
       }
@@ -197,11 +198,9 @@ export default function NutrientMonitoringTable() {
     load();
   }, []);
 
-  // --------------------------------------------
-  // Dependent unique lists
-  // --------------------------------------------
   const uniqueDistricts = useMemo(
-    () => Array.from(new Set(data.map((r) => r.district_name))).filter(Boolean).sort(),
+    () =>
+      Array.from(new Set(data.map((r) => r.district_name).filter(Boolean))).sort(),
     [data]
   );
 
@@ -230,31 +229,18 @@ export default function NutrientMonitoringTable() {
       .sort();
   }, [data, districtFilter, blockFilter]);
 
-  // --------------------------------------------
-  // Combined final filter pipeline:
-  // status -> district -> block -> village -> global search
-  // --------------------------------------------
   const finalData = useMemo(() => {
     const g = globalFilter.trim().toLowerCase();
-
     return data.filter((rec) => {
-      // status
       if (statusFilter !== "all" && getStatus(rec) !== statusFilter) return false;
-
-      // dependent geo filters
       if (districtFilter && rec.district_name !== districtFilter) return false;
       if (blockFilter && rec.block_name !== blockFilter) return false;
       if (villageFilter && rec.village_name !== villageFilter) return false;
-
-      // global search
       if (!g) return true;
       return JSON.stringify(rec).toLowerCase().includes(g);
     });
   }, [data, statusFilter, districtFilter, blockFilter, villageFilter, globalFilter]);
 
-  // --------------------------------------------
-  // Table
-  // --------------------------------------------
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
@@ -266,7 +252,6 @@ export default function NutrientMonitoringTable() {
     village_name: false,
     block_name: false,
     district_name: false,
-    crop_registration_id: false,
   });
 
   const table = useReactTable({
@@ -278,18 +263,52 @@ export default function NutrientMonitoringTable() {
       columnFilters,
       columnVisibility,
       pagination,
-    } as any, // globalFilter controlled separately by setGlobalFilter
+    } as any,
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     onPaginationChange: setPagination,
-
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
   });
+
+  function exportCSV() {
+    if (!table.getFilteredRowModel().rows.length) return;
+
+    const visibleCols = table
+      .getAllLeafColumns()
+      .filter((c) => c.getIsVisible() && c.id !== "actions");
+
+    const headers = visibleCols.map((c) =>
+      typeof c.columnDef.header === "string" ? c.columnDef.header : String(c.id)
+    );
+
+    const rows = table.getFilteredRowModel().rows.map((r) =>
+      visibleCols
+        .map((col) => {
+          const v = (r.original as any)[col.id];
+          if (v === null || v === undefined) return "";
+          const s = typeof v === "string" ? v : JSON.stringify(v);
+          if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+            return `"${s.replace(/"/g, '""')}"`;
+          }
+          return s;
+        })
+        .join(",")
+    );
+
+    const csv = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `nutrient_monitoring.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   if (loading) return <div className="p-6">Loading...</div>;
 
@@ -297,363 +316,320 @@ export default function NutrientMonitoringTable() {
   const partialCount = data.filter((d) => getStatus(d) === "partial").length;
   const notFilledCount = data.filter((d) => getStatus(d) === "not_filled").length;
 
-  // --------------------------------------------
-  // Render
-  // --------------------------------------------
   return (
-    <div className="w-full min-h-screen bg-[#F5E9D4]/20">
-      <div className="w-full max-w-none p-6">
-        {/* Controls */}
-        <div className="bg-white rounded-lg border border-[#6D4C41]/20 p-4 mb-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end">
-            {/* Search */}
-            <div className="col-span-1 md:col-span-2">
-              <label className="text-xs font-medium text-[#2E3A3F]">Search</label>
-              <input
-                placeholder="Search…"
-                className="w-full border px-3 py-2 rounded mt-1"
-                value={globalFilter}
-                onChange={(e) => setGlobalFilter(e.target.value)}
-              />
-            </div>
-
-            {/* District */}
-            <div>
-              <label className="text-xs font-medium text-[#2E3A3F]">District</label>
-              <select
-                className="w-full border px-3 py-2 rounded mt-1"
-                value={districtFilter}
-                onChange={(e) => {
-                  setDistrictFilter(e.target.value);
-                  setBlockFilter("");
-                  setVillageFilter("");
-                }}
-              >
-                <option value="">All Districts</option>
-                {uniqueDistricts.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Block */}
-            <div>
-              <label className="text-xs font-medium text-[#2E3A3F]">Block</label>
-              <select
-                className="w-full border px-3 py-2 rounded mt-1"
-                value={blockFilter}
-                disabled={!districtFilter}
-                onChange={(e) => {
-                  setBlockFilter(e.target.value);
-                  setVillageFilter("");
-                }}
-              >
-                <option value="">All Blocks</option>
-                {uniqueBlocks.map((b) => (
-                  <option key={b} value={b}>
-                    {b}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Village */}
-            <div>
-              <label className="text-xs font-medium text-[#2E3A3F]">Village</label>
-              <select
-                className="w-full border px-3 py-2 rounded mt-1"
-                value={villageFilter}
-                disabled={!blockFilter}
-                onChange={(e) => setVillageFilter(e.target.value)}
-              >
-                <option value="">All Villages</option>
-                {uniqueVillages.map((v) => (
-                  <option key={v} value={v}>
-                    {v}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Status */}
-            <div>
-              <label className="text-xs font-medium text-[#2E3A3F]">Status</label>
-              <select
-                className="w-full border px-3 py-2 rounded mt-1"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as any)}
-              >
-                <option value="all">All</option>
-                <option value="filled">Filled</option>
-                <option value="partial">Partially Filled</option>
-                <option value="not_filled">Not Filled</option>
-              </select>
-            </div>
-
-            {/* Columns toggle (small) */}
-            <div>
-              <label className="text-xs font-medium text-[#2E3A3F]">Columns</label>
-              <details className="border rounded mt-1">
-                <summary className="px-3 py-2 cursor-pointer">Toggle Columns</summary>
-                <div className="p-3">
-                  {table.getAllLeafColumns().map((col) => (
-                    <label key={col.id} className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={col.getIsVisible()}
-                        onChange={col.getToggleVisibilityHandler()}
-                      />
-                      {col.id}
-                    </label>
-                  ))}
-                </div>
-              </details>
-            </div>
-          </div>
-
-          {/* Badges + counts */}
-          <div className="flex items-center gap-3 mt-4">
-            <span className="px-3 py-1 rounded-full text-sm bg-green-100 text-green-800">
-              Filled: {filledCount}
-            </span>
-            <span className="px-3 py-1 rounded-full text-sm bg-yellow-100 text-yellow-800">
-              Partial: {partialCount}
-            </span>
-            <span className="px-3 py-1 rounded-full text-sm bg-red-100 text-red-800">
-              Not Filled: {notFilledCount}
-            </span>
-
-            <div className="ml-auto text-sm text-[#2E3A3F]/70">
-              Showing {table.getFilteredRowModel().rows.length} of {data.length} records
-            </div>
-          </div>
-        </div>
-
-        {/* Table */}
-        <div className="w-full overflow-auto border rounded mt-4 bg-white">
-          <table className="w-full text-sm border-collapse">
-            <thead className="bg-gray-100 sticky top-0 z-10">
-              {table.getHeaderGroups().map((hg) => (
-                <tr key={hg.id}>
-                  {hg.headers.map((h) => (
-                    <th
-                      key={h.id}
-                      className="p-3 border-b cursor-pointer"
-                      onClick={h.column.getToggleSortingHandler()}
-                    >
-                      {flexRender(h.column.columnDef.header, h.getContext())}
-                      {h.column.getIsSorted() === "asc" && " ▲"}
-                      {h.column.getIsSorted() === "desc" && " ▼"}
-                    </th>
-                  ))}
-                </tr>
-              ))}
-            </thead>
-
-            <tbody>
-              {table.getRowModel().rows.map((row, i) => (
-                <tr
-                  key={row.id}
-                  className={`${i % 2 ? "bg-gray-50" : "bg-white"} hover:bg-blue-50`}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="p-3 border-gray-200">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        <div className="flex items-center gap-3 mt-4">
+    <div className="w-full">
+      <div className="bg-white border border-gray-300 rounded-lg p-4 shadow-sm mb-6 w-full">
+        <div className="flex justify-between mb-4">
           <button
-            className="border px-3 py-1 rounded disabled:opacity-50"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
+            onClick={exportCSV}
+            className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700"
           >
-            Prev
+            Export CSV
           </button>
 
-          <span>
-            Page {pagination.pageIndex + 1} / {table.getPageCount()}
+          <div className="relative inline-block text-left">
+            <button
+              onClick={() => setShowColumnMenu((p) => !p)}
+              className="px-4 py-2 rounded bg-gray-700 text-white hover:bg-gray-800"
+            >
+              Columns
+            </button>
+
+            {showColumnMenu && (
+              <div className="absolute right-0 mt-2 w-56 bg-white shadow-lg rounded-lg border border-gray-200 z-50 p-3 max-h-72 overflow-y-auto">
+                {schemaFields.concat([]).map((col) => (
+                  <label key={String(col)} className="flex items-center gap-2 text-sm mb-2">
+                    <input
+                      type="checkbox"
+                      checked={table.getColumn(String(col))?.getIsVisible() ?? false}
+                      onChange={(e) =>
+                        table.getColumn(String(col))?.toggleVisibility(e.target.checked)
+                      }
+                    />
+                    {String(col).replace(/_/g, " ")}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="flex flex-col">
+            <label className="text-sm font-medium">Search</label>
+            <input
+              className="border rounded px-3 h-10"
+              placeholder="Search..."
+              value={globalFilter}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+            />
+          </div>
+
+          <div className="flex flex-col">
+            <label className="text-sm font-medium">District</label>
+            <select
+              className="border rounded px-3 h-10"
+              value={districtFilter}
+              onChange={(e) => {
+                setDistrictFilter(e.target.value);
+                setBlockFilter("");
+                setVillageFilter("");
+              }}
+            >
+              <option value="">All Districts</option>
+              {uniqueDistricts.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col">
+            <label className="text-sm font-medium">Block</label>
+            <select
+              className="border rounded px-3 h-10"
+              value={blockFilter}
+              disabled={!districtFilter}
+              onChange={(e) => {
+                setBlockFilter(e.target.value);
+                setVillageFilter("");
+              }}
+            >
+              <option value="">All Blocks</option>
+              {uniqueBlocks.map((b) => (
+                <option key={b} value={b}>
+                  {b}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col">
+            <label className="text-sm font-medium">Village</label>
+            <select
+              className="border rounded px-3 h-10"
+              value={villageFilter}
+              disabled={!blockFilter}
+              onChange={(e) => setVillageFilter(e.target.value)}
+            >
+              <option value="">All Villages</option>
+              {uniqueVillages.map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <select
+            className="border rounded px-3 h-10"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as any)}
+          >
+            <option value="all">All Records</option>
+            <option value="filled">Filled</option>
+            <option value="partial">Partial</option>
+            <option value="not_filled">Not Filled</option>
+          </select>
+
+          <span className="px-4 py-1.5 rounded-full text-sm font-medium bg-green-100 text-green-700">
+            Filled: {filledCount}
           </span>
 
-          <button
-            className="border px-3 py-1 rounded disabled:opacity-50"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            Next
-          </button>
+          <span className="px-4 py-1.5 rounded-full text-sm font-medium bg-yellow-100 text-yellow-700">
+            Partial: {partialCount}
+          </span>
+
+          <span className="px-4 py-1.5 rounded-full text-sm font-medium bg-red-100 text-red-700">
+            Not Filled: {notFilledCount}
+          </span>
+
+          <span className="ml-auto text-sm text-gray-600">
+            Showing {finalData.length} of {data.length} records
+          </span>
         </div>
+      </div>
 
-        {/* ---------------- MODAL ---------------- */}
-        {selected && (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-white w-[700px] max-h-[90vh] rounded-lg shadow-xl p-5 overflow-y-auto">
-              {/* Header */}
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold">Nutrient Monitoring Details</h2>
+      <div className={THEME.table.wrapper}>
+        <table className={THEME.table.table}>
+          <thead className={THEME.table.thead}>
+            {table.getHeaderGroups().map((hg) => (
+              <tr key={hg.id}>
+                {hg.headers.map((header) => (
+                  <th
+                    key={header.id}
+                    className={THEME.table.theadText}
+                    onClick={header.column.getToggleSortingHandler()}
+                  >
+                    {flexRender(header.column.columnDef.header, header.getContext())}
+                    {header.column.getIsSorted() === "asc" && " ▲"}
+                    {header.column.getIsSorted() === "desc" && " ▼"}
+                  </th>
+                ))}
+              </tr>
+            ))}
+          </thead>
 
-                <button
-                  className="text-gray-500 hover:text-black"
-                  onClick={() => setSelected(null)}
-                >
-                  ✕
-                </button>
+          <tbody>
+            {table.getRowModel().rows.map((row, i) => (
+              <tr
+                key={row.id}
+                className={`${i % 2 === 0 ? THEME.table.rowEven : THEME.table.rowOdd} ${THEME.table.rowHover}`}
+              >
+                {row.getVisibleCells().map((cell) => (
+                  <td key={cell.id} className={THEME.table.cell}>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex gap-4 items-center mt-4">
+        <button
+          className="border px-3 py-2 rounded disabled:opacity-50"
+          disabled={!table.getCanPreviousPage()}
+          onClick={() => table.previousPage()}
+        >
+          Prev
+        </button>
+
+        <span className="text-sm">Page {pagination.pageIndex + 1} / {table.getPageCount()}</span>
+
+        <button
+          className="border px-3 py-2 rounded disabled:opacity-50"
+          disabled={!table.getCanNextPage()}
+          onClick={() => table.nextPage()}
+        >
+          Next
+        </button>
+      </div>
+
+      {selected && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white w-[700px] max-h-[90vh] rounded-xl shadow-xl p-6 overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-bold">Nutrient Monitoring Details</h2>
+              <button className="text-2xl" onClick={() => setSelected(null)}>×</button>
+            </div>
+
+            <div className="space-y-4">
+              {["farmer_name", "farmer_mobile", "village_name", "block_name", "district_name"].map((k) => (
+                <div key={k} className="border-b pb-2">
+                  <div className="text-xs uppercase text-gray-600">{k.replace(/_/g, " ")}</div>
+                  <div className="text-sm">{safeVal(selected, k)}</div>
+                </div>
+              ))}
+
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                <div>
+                  <div className="text-xs text-gray-600 uppercase">Nutrient Count</div>
+                  <div className="text-sm">{selected?.nutrient_count ?? "—"}</div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-gray-600 uppercase">Status</div>
+                  <div className="text-sm">{getStatus(selected)}</div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-gray-600 uppercase">First Reading</div>
+                  <div className="text-sm">{firstDate(selected) || "—"}</div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-gray-600 uppercase">Latest Reading</div>
+                  <div className="text-sm">{lastDate(selected) || "—"}</div>
+                </div>
               </div>
 
-              {/* Modal Content */}
-              <div className="space-y-5">
-                {/* Farmer & location */}
-                <section>
-                  <h3 className="text-sm font-semibold mb-2">Farmer & Location</h3>
+              <div>
+                <h3 className="text-sm font-semibold mb-2">Nutrient Readings</h3>
+                <div className="overflow-auto border rounded">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="p-2 border">Reading Date</th>
+                        <th className="p-2 border">SPAD</th>
+                        <th className="p-2 border">Nitrogen</th>
+                        <th className="p-2 border">Filled?</th>
+                      </tr>
+                    </thead>
 
-                  {["farmer_name", "farmer_mobile", "village_name", "block_name", "district_name"].map(
-                    (k) => (
-                      <div key={k} className="border-b pb-2">
-                        <div className="text-xs text-gray-500 uppercase">{k.replace(/_/g, " ")}</div>
-                        <div className="text-sm">{safeVal(selected, k)}</div>
-                      </div>
-                    )
-                  )}
-                </section>
+                    <tbody>
+                      {parseNutrientData(selected?.nutrient_data).map((rd, idx) => {
+                        const filled = readingHasData(rd);
 
-                {/* Summary */}
-                <section>
-                  <h3 className="text-sm font-semibold mb-2">Summary</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <div className="text-xs text-gray-500 uppercase">Nutrient Count</div>
-                      <div className="text-sm">{selected.nutrient_count}</div>
-                    </div>
+                        const spad = [rd.SPAD1, rd.SPAD2, rd.SPAD3, rd.SPAD4, rd.SPAD5].filter(
+                          (v) => v && String(v).trim() !== ""
+                        );
+                        const nitro = [
+                          rd.Nitrogen1,
+                          rd.Nitrogen2,
+                          rd.Nitrogen3,
+                          rd.Nitrogen4,
+                          rd.Nitrogen5,
+                        ].filter((v) => v && String(v).trim() !== "");
 
-                    <div>
-                      <div className="text-xs text-gray-500 uppercase">Status</div>
-                      <div className="text-sm">{getStatus(selected)}</div>
-                    </div>
+                        // We still parse locs in case any other logic uses it elsewhere,
+                        // but we do NOT render the Locations column in the modal.
+                        const rawLocs = [
+                          rd.Reading1_location,
+                          rd.Reading2_location,
+                          rd.Reading3_location,
+                          rd.Reading4_location,
+                          rd.Reading5_location,
+                        ].filter((v) => v && String(v).trim() !== "");
 
-                    <div>
-                      <div className="text-xs text-gray-500 uppercase">First Reading</div>
-                      <div className="text-sm">{firstDate(selected) || "—"}</div>
-                    </div>
+                        const locs: string[] = [];
+                        rawLocs.forEach((l) => {
+                          if (!l) return;
+                          if (/[\u0900-\u097F]/.test(l)) {
+                            locs.push(l.trim());
+                          } else {
+                            l.split(/\s*Timestamp\s*[:-]?\s*/i)
+                              .flatMap((p) => p.split(/\r?\n/))
+                              .forEach((part) => {
+                                const c = part.trim();
+                                if (c) locs.push(c);
+                              });
+                          }
+                        });
 
-                    <div>
-                      <div className="text-xs text-gray-500 uppercase">Latest Reading</div>
-                      <div className="text-sm">{lastDate(selected) || "—"}</div>
-                    </div>
-                  </div>
-                </section>
+                        return (
+                          <tr key={idx} className={`${idx % 2 ? "bg-gray-50" : "bg-white"} ${!filled ? "opacity-50" : ""}`}>
+                            <td className="p-2 border">{rd.reading_date || "—"}</td>
 
-                {/* Nutrient Reading Table */}
-                <section>
-                  <h3 className="text-sm font-semibold mb-2">Nutrient Readings</h3>
+                            <td className="p-2 border align-top">
+                              {spad.length ? <div className="flex flex-col">{spad.map((s, i) => <div key={i}>{s}</div>)}</div> : "—"}
+                            </td>
 
-                  <div className="overflow-auto border rounded">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-100">
-                        <tr>
-                          <th className="p-2 border">Reading Date</th>
-                          <th className="p-2 border">SPAD</th>
-                          <th className="p-2 border">Nitrogen</th>
-                          <th className="p-2 border">Locations</th>
-                          <th className="p-2 border">Filled?</th>
-                        </tr>
-                      </thead>
+                            <td className="p-2 border align-top">
+                              {nitro.length ? <div className="flex flex-col">{nitro.map((n, i) => <div key={i}>{n}</div>)}</div> : "—"}
+                            </td>
 
-                      <tbody>
-                        {parseNutrientData(selected.nutrient_data).map((rd, idx) => {
-                          const filled = readingHasData(rd);
-
-                          const spad = [rd.SPAD1, rd.SPAD2, rd.SPAD3, rd.SPAD4, rd.SPAD5].filter(
-                            (v) => v && String(v).trim() !== ""
-                          );
-                          const nitro = [
-                            rd.Nitrogen1,
-                            rd.Nitrogen2,
-                            rd.Nitrogen3,
-                            rd.Nitrogen4,
-                            rd.Nitrogen5,
-                          ].filter((v) => v && String(v).trim() !== "");
-
-                          const rawLocs = [
-                            rd.Reading1_location,
-                            rd.Reading2_location,
-                            rd.Reading3_location,
-                            rd.Reading4_location,
-                            rd.Reading5_location,
-                          ].filter((v) => v && String(v).trim() !== "");
-
-                          const locs: string[] = [];
-                          rawLocs.forEach((l) => {
-                            if (!l) return;
-
-                            // Keep Devanagari as-is
-                            if (/[\u0900-\u097F]/.test(l)) {
-                              locs.push(l.trim());
-                            } else {
-                              l.split(/\s*Timestamp\s*[:-]?\s*/i)
-                                .flatMap((p) => p.split(/\r?\n/))
-                                .forEach((part) => {
-                                  const c = part.trim();
-                                  if (c) locs.push(c);
-                                });
-                            }
-                          });
-
-                          return (
-                            <tr
-                              key={idx}
-                              className={`${idx % 2 ? "bg-gray-50" : "bg-white"} ${!filled ? "opacity-50" : ""}`}
-                            >
-                              <td className="p-2 border">{rd.reading_date || "—"}</td>
-
-                              <td className="p-2 border align-top">
-                                {spad.length ? (
-                                  <div className="flex flex-col">{spad.map((s, i) => <div key={i}>{s}</div>)}</div>
-                                ) : (
-                                  "—"
-                                )}
-                              </td>
-
-                              <td className="p-2 border align-top">
-                                {nitro.length ? (
-                                  <div className="flex flex-col">{nitro.map((n, i) => <div key={i}>{n}</div>)}</div>
-                                ) : (
-                                  "—"
-                                )}
-                              </td>
-
-                              <td className="p-2 border align-top whitespace-pre-wrap">
-                                {locs.length ? (
-                                  <div className="flex flex-col">{locs.map((L, i) => <div key={i}>{L}</div>)}</div>
-                                ) : (
-                                  "—"
-                                )}
-                              </td>
-
-                              <td className="p-2 border">
-                                <span className={`px-2 py-1 text-xs rounded ${filled ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                                  {filled ? "Yes" : "No"}
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </section>
+                            <td className="p-2 border">
+                              <span className={`px-2 py-1 text-xs rounded ${filled ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                                {filled ? "Yes" : "No"}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
+
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

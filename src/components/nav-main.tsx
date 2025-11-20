@@ -1,4 +1,5 @@
 import { ChevronRight, type LucideIcon } from "lucide-react"
+import { useNavigate } from "react-router-dom"
 
 import {
   Collapsible,
@@ -14,6 +15,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  useSidebar,
 } from "@/components/ui/sidebar"
 
 export function NavMain({
@@ -30,6 +32,17 @@ export function NavMain({
     }[]
   }[]
 }) {
+  const navigate = useNavigate()
+  const { isMobile, setOpenMobile } = useSidebar()
+
+  const handleSubItemClick = (url: string) => {
+    navigate(url)
+    // Only close sidebar on mobile
+    if (isMobile) {
+      setOpenMobile(false)
+    }
+  }
+
   return (
     <SidebarGroup>
       <SidebarGroupLabel className="text-[#6D4C41] font-semibold">Operations</SidebarGroupLabel>
@@ -54,9 +67,12 @@ export function NavMain({
                   {item.items?.map((subItem) => (
                     <SidebarMenuSubItem key={subItem.title}>
                       <SidebarMenuSubButton asChild className="hover:bg-[#7CB342]/10">
-                        <a href={subItem.url} className="text-[#2E3A3F]/80 hover:text-[#1B5E20]">
+                        <button
+                          onClick={() => handleSubItemClick(subItem.url)}
+                          className="text-[#2E3A3F]/80 hover:text-[#1B5E20] text-left w-full"
+                        >
                           <span>{subItem.title}</span>
-                        </a>
+                        </button>
                       </SidebarMenuSubButton>
                     </SidebarMenuSubItem>
                   ))}

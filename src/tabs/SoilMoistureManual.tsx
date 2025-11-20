@@ -14,10 +14,8 @@ import {
 } from "@tanstack/react-table";
 
 import { useState, useEffect, useMemo } from "react";
+import { THEME } from "../utils/theme";
 
-// --------------------------------------------------
-// TYPES
-// --------------------------------------------------
 export type SoilItem = {
   date?: string;
   sensor1Dry?: string | number;
@@ -35,40 +33,58 @@ export type SoilManagementRecord = {
   village_name: string;
   block_name: string;
   district_name: string;
-  crop_registration_id: string;
-
-  soil_data: string; // JSON string
+  soil_data: string;
   soil_moisture_count: number;
 };
 
-// --------------------------------------------------
-// SAFE HELPERS
-// --------------------------------------------------
+const schemaFields: (keyof SoilManagementRecord)[] = [
+  "farmer_name",
+  "farmer_mobile",
+  "crop_name_en",
+  "surveyor_name",
+  "surveyor_id",
+  "village_name",
+  "block_name",
+  "district_name",
+  "soil_moisture_count",
+  "soil_data",
+];
+
+function maskValue(v: string): string {
+  if (!v) return "—";
+  if (v.length <= 6) return "XXXXXX";
+  return "XXXXXX" + v.slice(6);
+}
+
 function safeVal(rec: SoilManagementRecord | null, key: keyof SoilManagementRecord) {
   if (!rec) return "—";
   const v = rec[key];
-  return v === "" || v === null || v === undefined ? "—" : v;
+  if (v === "" || v === null || v === undefined) return "—";
+
+  if (key === "farmer_mobile" || key === "surveyor_id") {
+    return maskValue(String(v));
+  }
+
+  return v;
 }
 
-function parseSoilData(jsonStr: string): SoilItem[] {
+function parseSoilData(jsonStr: string | undefined): SoilItem[] {
+  if (!jsonStr || typeof jsonStr !== "string") return [];
   try {
     const arr = JSON.parse(jsonStr);
     if (!Array.isArray(arr)) return [];
     return arr.map((it: any) => ({
-      date: it.date ?? "",
-      sensor1Dry: it.sensor1Dry ?? "",
-      sensor1Wet: it.sensor1Wet ?? "",
-      sensor2Dry: it.sensor2Dry ?? "",
-      sensor2Wet: it.sensor2Wet ?? "",
+      date: it?.date ?? "",
+      sensor1Dry: it?.sensor1Dry ?? "",
+      sensor1Wet: it?.sensor1Wet ?? "",
+      sensor2Dry: it?.sensor2Dry ?? "",
+      sensor2Wet: it?.sensor2Wet ?? "",
     }));
   } catch {
     return [];
   }
 }
 
-// --------------------------------------------------
-// SMALL COMPONENTS FOR MODAL
-// --------------------------------------------------
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
@@ -81,62 +97,55 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Field({ name, value }: { name: string; value: any }) {
   return (
     <div className="border-b pb-2">
-      <div className="text-xs text-gray-500 uppercase tracking-wider">
-        {name.replace(/_/g, " ")}
-      </div>
-      <div className="text-sm">{value}</div>
+      <div className="text-xs text-gray-500 uppercase tracking-wider">{name.replace(/_/g, " ")}</div>
+      <div className="text-sm">{value ?? "—"}</div>
     </div>
   );
 }
 
-// --------------------------------------------------
-// MAIN COMPONENT
-// --------------------------------------------------
 export default function SoilManagementTable() {
   const [data, setData] = useState<SoilManagementRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<SoilManagementRecord | null>(null);
 
-  // DEPENDENT FILTER STATES
   const [districtFilter, setDistrictFilter] = useState("");
   const [blockFilter, setBlockFilter] = useState("");
   const [villageFilter, setVillageFilter] = useState("");
 
+  const [showColumnMenu, setShowColumnMenu] = useState(false);
+
   const columnHelper = createColumnHelper<SoilManagementRecord>();
 
-  // --------------------------------------------------
-  // TABLE COLUMNS
-  // --------------------------------------------------
   const columns = [
     columnHelper.accessor("farmer_name", { header: "Farmer" }),
+    columnHelper.accessor("farmer_mobile", {
+      header: "Mobile",
+      cell: ({ row }) => maskValue(row.original.farmer_mobile),
+    }),
     columnHelper.accessor("crop_name_en", { header: "Crop" }),
+    columnHelper.accessor("soil_moisture_count", { header: "Records Count" }),
+
     columnHelper.accessor("surveyor_name", { header: "Surveyor" }),
+    columnHelper.accessor("surveyor_id", {
+      header: "Surveyor ID",
+      cell: ({ row }) => maskValue(row.original.surveyor_id),
+    }),
     columnHelper.accessor("village_name", { header: "Village" }),
     columnHelper.accessor("block_name", { header: "Block" }),
     columnHelper.accessor("district_name", { header: "District" }),
-    columnHelper.accessor("crop_registration_id", { header: "Reg ID" }),
-
-    columnHelper.accessor("surveyor_id", { header: "Surveyor ID" }),
-    columnHelper.accessor("farmer_mobile", { header: "Mobile" }),
-    columnHelper.accessor("soil_moisture_count", { header: "Records Count" }),
+    columnHelper.accessor("soil_data", { header: "Soil Data" }),
 
     columnHelper.display({
       id: "actions",
       header: "Actions",
       cell: ({ row }) => (
-        <button
-          className="px-3 py-1 text-sm rounded bg-blue-600 text-white hover:bg-blue-700"
-          onClick={() => setSelected(row.original)}
-        >
+        <button className={THEME.buttons.primary} onClick={() => setSelected(row.original)}>
           View
         </button>
       ),
     }),
   ];
 
-  // --------------------------------------------------
-  // FETCH
-  // --------------------------------------------------
   useEffect(() => {
     async function load() {
       try {
@@ -150,32 +159,22 @@ export default function SoilManagementTable() {
     load();
   }, []);
 
-  // --------------------------------------------------
-  // TABLE STATES
-  // --------------------------------------------------
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
 
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
-    farmer_name: false,
-    crop_name_en: false,
-    surveyor_name: false,
-    village_name: false,
-    block_name: false,
-    district_name: false,
-    crop_registration_id: false,
-
-    surveyor_id: true,
-    farmer_mobile: true,
-    soil_moisture_count: true,
-    actions: true,
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => {
+    const s: VisibilityState = {};
+    schemaFields.forEach(f => (s[f] = false));
+    s["farmer_name"] = true;
+    s["farmer_mobile"] = true;
+    s["crop_name_en"] = true;
+    s["soil_moisture_count"] = true;
+    s["actions"] = true;
+    return s;
   });
 
-  // --------------------------------------------------
-  // DEPENDENT VALUES
-  // --------------------------------------------------
   const uniqueDistricts = useMemo(
     () => Array.from(new Set(data.map(r => r.district_name))).filter(Boolean).sort(),
     [data]
@@ -184,8 +183,7 @@ export default function SoilManagementTable() {
   const uniqueBlocks = useMemo(() => {
     return Array.from(
       new Set(
-        data.filter(r => (districtFilter ? r.district_name === districtFilter : true))
-            .map(r => r.block_name)
+        data.filter(r => (districtFilter ? r.district_name === districtFilter : true)).map(r => r.block_name)
       )
     )
       .filter(Boolean)
@@ -205,9 +203,6 @@ export default function SoilManagementTable() {
       .sort();
   }, [data, districtFilter, blockFilter]);
 
-  // --------------------------------------------------
-  // FINAL FILTER LOGIC (search + dependent filter)
-  // --------------------------------------------------
   const finalData = useMemo(() => {
     const g = globalFilter.trim().toLowerCase();
 
@@ -221,9 +216,6 @@ export default function SoilManagementTable() {
     });
   }, [data, districtFilter, blockFilter, villageFilter, globalFilter]);
 
-  // --------------------------------------------------
-  // TABLE INIT
-  // --------------------------------------------------
   const table = useReactTable({
     data: finalData,
     columns,
@@ -233,41 +225,98 @@ export default function SoilManagementTable() {
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     onPaginationChange: setPagination,
-
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
   });
 
+  function exportCSV() {
+    if (!finalData.length) return;
+
+    const headers = schemaFields;
+
+    const rows = finalData.map(row =>
+      headers.map(h => {
+        let v = row[h];
+
+        if (h === "farmer_mobile" || h === "surveyor_id") {
+          v = maskValue(String(v || ""));
+        }
+
+        if (v === null || v === undefined) return "";
+        const s = typeof v === "string" ? v : JSON.stringify(v);
+
+        if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+          return `"${s.replace(/"/g, '""')}"`;
+        }
+        return s;
+      })
+    );
+
+    const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "soil_moisture_manual.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   if (loading) return <div className="p-4">Loading...</div>;
 
-  // --------------------------------------------------
-  // UI
-  // --------------------------------------------------
   return (
-    <div className="w-full min-h-screen bg-[#F5E9D4]/20">
-      <div className="w-full max-w-none p-6">
+    <div className="w-full">
+      <div className="bg-white border border-gray-300 rounded-lg p-4 shadow-sm mb-6 w-full">
+        <div className="flex justify-between mb-4">
+          <button
+            onClick={exportCSV}
+            className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700"
+          >
+            Export CSV
+          </button>
 
-        {/* FILTER BAR */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
+          <div className="relative inline-block text-left">
+            <button
+              onClick={() => setShowColumnMenu(prev => !prev)}
+              className="px-4 py-2 rounded bg-gray-700 text-white hover:bg-gray-800"
+            >
+              Columns
+            </button>
 
-          {/* SEARCH */}
-          <div className="flex flex-col gap-2">
+            {showColumnMenu && (
+              <div className="absolute right-0 mt-2 w-56 bg-white shadow-lg rounded-lg border border-gray-200 z-50 p-3 max-h-72 overflow-y-auto">
+                {schemaFields.concat(["actions" as any]).map(col => (
+                  <label key={String(col)} className="flex items-center gap-2 text-sm mb-2">
+                    <input
+                      type="checkbox"
+                      checked={table.getColumn(String(col))?.getIsVisible() ?? false}
+                      onChange={e => table.getColumn(String(col))?.toggleVisibility(e.target.checked)}
+                    />
+                    {String(col).replace(/_/g, " ")}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="flex flex-col">
             <label className="text-sm font-medium">Search</label>
             <input
+              className="border rounded px-3 h-10"
               placeholder="Search all fields..."
-              className="border px-3 py-2 rounded-md"
               value={globalFilter}
               onChange={e => setGlobalFilter(e.target.value)}
             />
           </div>
 
-          {/* DISTRICT */}
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col">
             <label className="text-sm font-medium">District</label>
             <select
-              className="border px-3 py-2 rounded-md"
+              className="border rounded px-3 h-10"
               value={districtFilter}
               onChange={e => {
                 setDistrictFilter(e.target.value);
@@ -275,18 +324,19 @@ export default function SoilManagementTable() {
                 setVillageFilter("");
               }}
             >
-              <option value="">All</option>
+              <option value="">All Districts</option>
               {uniqueDistricts.map(d => (
-                <option key={d} value={d}>{d}</option>
+                <option key={d} value={d}>
+                  {d}
+                </option>
               ))}
             </select>
           </div>
 
-          {/* BLOCK */}
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col">
             <label className="text-sm font-medium">Block</label>
             <select
-              className="border px-3 py-2 rounded-md"
+              className="border rounded px-3 h-10"
               value={blockFilter}
               disabled={!districtFilter}
               onChange={e => {
@@ -294,176 +344,154 @@ export default function SoilManagementTable() {
                 setVillageFilter("");
               }}
             >
-              <option value="">All</option>
+              <option value="">All Blocks</option>
               {uniqueBlocks.map(b => (
-                <option key={b} value={b}>{b}</option>
+                <option key={b} value={b}>
+                  {b}
+                </option>
               ))}
             </select>
           </div>
 
-          {/* VILLAGE */}
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col">
             <label className="text-sm font-medium">Village</label>
             <select
-              className="border px-3 py-2 rounded-md"
+              className="border rounded px-3 h-10"
               value={villageFilter}
               disabled={!blockFilter}
               onChange={e => setVillageFilter(e.target.value)}
             >
-              <option value="">All</option>
+              <option value="">All Villages</option>
               {uniqueVillages.map(v => (
-                <option key={v} value={v}>{v}</option>
+                <option key={v} value={v}>
+                  {v}
+                </option>
               ))}
             </select>
           </div>
         </div>
 
-        {/* COLUMNS TOGGLE & COUNT */}
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-sm text-gray-700">
-            Showing {finalData.length} of {data.length} records
-          </span>
+        <div className="flex justify-end text-sm text-gray-700 mt-4">
+          Showing {table.getFilteredRowModel().rows.length} of {data.length} records
+        </div>
+      </div>
 
-          <details className="border px-3 py-2 rounded-md cursor-pointer">
-            <summary>Columns</summary>
-            <div className="mt-2 flex flex-col gap-1">
-              {table.getAllLeafColumns().map(col => (
-                <label key={col.id} className="flex gap-2">
-                  <input
-                    type="checkbox"
-                    checked={col.getIsVisible()}
-                    onChange={col.getToggleVisibilityHandler()}
-                  />
-                  {col.id}
-                </label>
-              ))}
+      <div className={THEME.table.wrapper}>
+        <table className={THEME.table.table}>
+          <thead className={THEME.table.thead}>
+            {table.getHeaderGroups().map(hg => (
+              <tr key={hg.id}>
+                {hg.headers.map(header => (
+                  <th
+                    key={header.id}
+                    className={THEME.table.theadText}
+                    onClick={header.column.getToggleSortingHandler()}
+                  >
+                    {flexRender(header.column.columnDef.header, header.getContext())}
+                    {header.column.getIsSorted() === "asc" && " ▲"}
+                    {header.column.getIsSorted() === "desc" && " ▼"}
+                  </th>
+                ))}
+              </tr>
+            ))}
+          </thead>
+
+          <tbody>
+            {table.getRowModel().rows.map((row, i) => (
+              <tr
+                key={row.id}
+                className={`${i % 2 === 0 ? THEME.table.rowEven : THEME.table.rowOdd} ${THEME.table.rowHover}`}
+              >
+                {row.getVisibleCells().map(cell => (
+                  <td key={cell.id} className={THEME.table.cell}>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex gap-3 items-center mt-4">
+        <button
+          className="border px-3 py-1 rounded disabled:opacity-50"
+          onClick={() => table.previousPage()}
+          disabled={!table.getCanPreviousPage()}
+        >
+          Prev
+        </button>
+
+        <span className="text-sm font-medium">
+          Page {pagination.pageIndex + 1} / {table.getPageCount()}
+        </span>
+
+        <button
+          className="border px-3 py-1 rounded disabled:opacity-50"
+          onClick={() => table.nextPage()}
+          disabled={!table.getCanNextPage()}
+        >
+          Next
+        </button>
+      </div>
+
+      {selected && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white w-[520px] max-h-[90vh] rounded-lg shadow-xl p-5 overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold">Soil Moisture Calibration</h2>
+              <button className="text-gray-500 hover:text-black" onClick={() => setSelected(null)}>
+                ✕
+              </button>
             </div>
-          </details>
-        </div>
 
-        {/* TABLE */}
-        <div className="w-full overflow-auto border rounded-lg">
-          <table className="w-full border-collapse text-sm">
-            <thead className="bg-gray-100 sticky top-0 z-10">
-              {table.getHeaderGroups().map(hg => (
-                <tr key={hg.id}>
-                  {hg.headers.map(header => (
-                    <th
-                      key={header.id}
-                      className="p-3 font-semibold border-b cursor-pointer"
-                      onClick={header.column.getToggleSortingHandler()}
-                    >
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                      {header.column.getIsSorted() === "asc" && " ▲"}
-                      {header.column.getIsSorted() === "desc" && " ▼"}
-                    </th>
-                  ))}
-                </tr>
-              ))}
-            </thead>
+            <div className="space-y-6">
+              <Section title="Farmer & Location">
+                {["farmer_name", "farmer_mobile", "village_name", "block_name", "district_name"].map(k => (
+                  <Field key={k} name={k} value={safeVal(selected, k as any)} />
+                ))}
+              </Section>
 
-            <tbody>
-              {table.getRowModel().rows.map(row => (
-                <tr key={row.id} className="border-b hover:bg-blue-50">
-                  {row.getVisibleCells().map(cell => (
-                    <td key={cell.id} className="p-3">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              <Section title="Crop Details">
+                <Field name="crop_name_en" value={safeVal(selected, "crop_name_en")} />
+              </Section>
 
-        {/* PAGINATION */}
-        <div className="flex gap-3 items-center mt-4">
-          <button
-            className="border px-3 py-1 rounded disabled:opacity-50"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            Prev
-          </button>
+              <Section title="Summary">
+                <Field name="soil_moisture_count" value={safeVal(selected, "soil_moisture_count")} />
+              </Section>
 
-          <span className="text-sm font-medium">
-            Page {pagination.pageIndex + 1} / {table.getPageCount()}
-          </span>
-
-          <button
-            className="border px-3 py-1 rounded disabled:opacity-50"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            Next
-          </button>
-        </div>
-
-        {/* MODAL */}
-        {selected && (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-white w-[520px] max-h-[90vh] rounded-lg shadow-xl p-5 overflow-y-auto">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold">Soil Moisture Calibration</h2>
-                <button
-                  className="text-gray-500 hover:text-black"
-                  onClick={() => setSelected(null)}
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="space-y-6">
-
-                <Section title="Farmer & Location">
-                  {["farmer_name", "farmer_mobile", "village_name", "block_name", "district_name"].map(
-                    k => <Field key={k} name={k} value={safeVal(selected, k as any)} />
-                  )}
-                </Section>
-
-                <Section title="Crop Details">
-                  <Field name="crop_name_en" value={safeVal(selected, "crop_name_en")} />
-                </Section>
-
-                <Section title="Summary">
-                  <Field name="soil_moisture_count" value={safeVal(selected, "soil_moisture_count")} />
-                </Section>
-
-                <Section title="Sensor Calibration Records">
-                  {parseSoilData(selected.soil_data).length === 0 ? (
-                    <div className="text-sm text-gray-500">No soil calibration data</div>
-                  ) : (
-                    <table className="w-full text-sm border">
-                      <thead className="bg-gray-100">
-                        <tr>
-                          <th className="border p-2">Date</th>
-                          <th className="border p-2">S1 Dry</th>
-                          <th className="border p-2">S1 Wet</th>
-                          <th className="border p-2">S2 Dry</th>
-                          <th className="border p-2">S2 Wet</th>
+              <Section title="Sensor Calibration Records">
+                {parseSoilData(selected?.soil_data || "").length === 0 ? (
+                  <div className="text-sm text-gray-500">No soil calibration data</div>
+                ) : (
+                  <table className="w-full text-sm border">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="border p-2">Date</th>
+                        <th className="border p-2">S1 Dry</th>
+                        <th className="border p-2">S1 Wet</th>
+                        <th className="border p-2">S2 Dry</th>
+                        <th className="border p-2">S2 Wet</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {parseSoilData(selected?.soil_data || "").map((item, i) => (
+                        <tr key={i}>
+                          <td className="border p-2">{item.date || "—"}</td>
+                          <td className="border p-2">{item.sensor1Dry ?? "—"}</td>
+                          <td className="border p-2">{item.sensor1Wet ?? "—"}</td>
+                          <td className="border p-2">{item.sensor2Dry ?? "—"}</td>
+                          <td className="border p-2">{item.sensor2Wet ?? "—"}</td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {parseSoilData(selected.soil_data).map((item, i) => (
-                          <tr key={i}>
-                            <td className="border p-2">{item.date}</td>
-                            <td className="border p-2">{item.sensor1Dry}</td>
-                            <td className="border p-2">{item.sensor1Wet}</td>
-                            <td className="border p-2">{item.sensor2Dry}</td>
-                            <td className="border p-2">{item.sensor2Wet}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </Section>
-
-              </div>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </Section>
             </div>
           </div>
-        )}
-
-      </div>
+        </div>
+      )}
     </div>
   );
 }

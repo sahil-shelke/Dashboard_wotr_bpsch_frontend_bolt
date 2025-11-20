@@ -1,351 +1,534 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, type JSX } from "react";
 import {
+  ResponsiveContainer,
   LineChart,
   Line,
+  Tooltip,
+  CartesianGrid,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
   Legend,
 } from "recharts";
-import { Sprout, Droplets, Bug, MapPin, Clock, Users } from "lucide-react";
 
-type Farmer = any;
-type Surveyor = any;
-type GenericRecord = any;
+// --------------------------------------------------
+// Helpers
+// --------------------------------------------------
 
-export default function DataDashboard() {
-  const [loading, setLoading] = useState(true);
+function fmt(d: Date) {
+  return d.toISOString().split("T")[0];
+}
+
+// Convert "10/29/25 12:00 AM" → "2025-10-29"
+function formatReadingTime(rt: string) {
+  try {
+    const datePart = rt.split(" ")[0]; // "10/29/25"
+    const [m, d, y] = datePart.split("/");
+
+    const fullYear = Number(y) < 50 ? `20${y}` : `19${y}`;
+
+    return `${fullYear}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  } catch {
+    return "";
+  }
+}
+
+const DEFAULT_END = new Date();
+const DEFAULT_START = new Date(DEFAULT_END);
+DEFAULT_START.setDate(DEFAULT_END.getDate() - 20);
+
+// colors
+const COLORS = [
+  "#1B5E20", "#2E7D32", "#388E3C", "#43A047", "#66BB6A",
+  "#7CB342", "#9CCC65", "#A5D6A7", "#0288D1", "#1565C0",
+  "#6A1B9A", "#8E24AA", "#E65100", "#FB8C00", "#D84315",
+];
+
+export default function Dashboard(): JSX.Element {
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [farmers, setFarmers] = useState<Farmer[]>([]);
-  const [surveyors, setSurveyors] = useState<Surveyor[]>([]);
+  const [villages, setVillages] = useState<any[]>([]);
+  const [selectedVillage, setSelectedVillage] = useState<any | null>(null);
 
-  const [cropRegistrations, setCropRegistrations] = useState<any[]>([]);
-  const [landPreps, setLandPreps] = useState<GenericRecord[]>([]);
-  const [seedSelections, setSeedSelections] = useState<GenericRecord[]>([]);
-  const [nutrients, setNutrients] = useState<GenericRecord[]>([]);
-  const [irrigations, setIrrigations] = useState<GenericRecord[]>([]);
-  const [weeds, setWeeds] = useState<GenericRecord[]>([]);
-  const [pests, setPests] = useState<GenericRecord[]>([]);
-  const [harvests, setHarvests] = useState<GenericRecord[]>([]);
-  const [soilManual, setSoilManual] = useState<GenericRecord[]>([]);
-  const [weatherHourly, setWeatherHourly] = useState<any[]>([]);
-  const [alerts, setAlerts] = useState<any[]>([]);
+  const [startDate, setStartDate] = useState(fmt(DEFAULT_START));
+  const [endDate, setEndDate] = useState(fmt(DEFAULT_END));
 
+  const [soilReadings, setSoilReadings] = useState<any[]>([]);
+  const [temperature, setTemperature] = useState<any[]>([]);
+  const [farmSummary, setFarmSummary] = useState<any[]>([]);
+
+  const [mode, setMode] = useState<"sensor" | "farm">("sensor");
+
+  const [visibleSensors, setVisibleSensors] = useState<Record<string, boolean>>({});
+  const [visibleFarms, setVisibleFarms] = useState<Record<string, boolean>>({});
+
+  // ------------------------------------------------------------
+  // Load villages initially
+  // ------------------------------------------------------------
   useEffect(() => {
-    let mounted = true;
-
-    async function loadAll() {
-      setLoading(true);
-      setError(null);
-      try {
-        const endpoints: [string, string][] = [
-          ["farmers", "/farmers"],
-          ["surveyors", "/surveyors"],
-          ["cropRegistrations", "/farm-management/crop-registrations"],
-          ["landPreps", "/farm-management/land_preparations"],
-          ["seedSelections", "/farm-management/seed-selection"],
-          ["nutrients", "/farm-management/plant-nutrients"],
-          ["irrigations", "/farm-management/irrigation"],
-          ["weeds", "/farm-management/weed-management"],
-          ["pests", "/farm-management/pest-management"],
-          ["harvests", "/farm-management/harvest-management"],
-          ["soilManual", "/farm-management/soil-moisture-manual"],
-          ["weatherHourly", "/davis-weather"],
-        ];
-
-        const fetches = endpoints.map(([key, url]) =>
-          fetch(url).then((r) => {
-            if (!r.ok) throw new Error(`${url} -> ${r.status}`);
-            return r.json().catch(() => []);
-          }).catch(() => [])
-        );
-
-        const results = await Promise.all(fetches);
-
-        if (!mounted) return;
-
-        const asObj: any = {};
-        endpoints.forEach((e, i) => (asObj[e[0]] = results[i]));
-
-        setFarmers(Array.isArray(asObj.farmers) ? asObj.farmers : []);
-        setSurveyors(Array.isArray(asObj.surveyors) ? asObj.surveyors : []);
-        setCropRegistrations(Array.isArray(asObj.cropRegistrations) ? asObj.cropRegistrations : []);
-        setLandPreps(Array.isArray(asObj.landPreps) ? asObj.landPreps : []);
-        setSeedSelections(Array.isArray(asObj.seedSelections) ? asObj.seedSelections : []);
-        setNutrients(Array.isArray(asObj.nutrients) ? asObj.nutrients : []);
-        setIrrigations(Array.isArray(asObj.irrigations) ? asObj.irrigations : []);
-        setWeeds(Array.isArray(asObj.weeds) ? asObj.weeds : []);
-        setPests(Array.isArray(asObj.pests) ? asObj.pests : []);
-        setHarvests(Array.isArray(asObj.harvests) ? asObj.harvests : []);
-        setSoilManual(Array.isArray(asObj.soilManual) ? asObj.soilManual : []);
-        setWeatherHourly(Array.isArray(asObj.weatherHourly) ? asObj.weatherHourly : []);
-
-        // quick alerts derivation from soil/weather/pests
-        const derivedAlerts: any[] = [];
-        (asObj.weatherHourly || []).slice(0, 50).forEach((w: any) => {
-          if (w?.rain && Number(w.rain) > 40) derivedAlerts.push({ message: "Heavy rain expected", time: w?.time || "recent", severity: "high" });
-        });
-        (asObj.soilManual || []).slice(0, 50).forEach((s: any) => {
-          if (s?.soil_moisture_count && Number(s.soil_moisture_count) < 3) derivedAlerts.push({ message: "Low soil calibration entries", time: "recent", severity: "warning" });
-        });
-        (asObj.pests || []).slice(0, 50).forEach((p: any) => {
-          if (p?.first_pest_date) derivedAlerts.push({ message: "Pest activity reported", time: p?.first_pest_date, severity: "warning" });
-        });
-
-        setAlerts(derivedAlerts);
-
-      } catch (err: any) {
-        console.error(err);
-        if (mounted) setError("Failed to load data. Check API availability.");
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    }
-
-    loadAll();
-    return () => { mounted = false; };
+    setLoading(true);
+    fetch("http://localhost:5000/api/villages/soil-moisture-villages")
+      .then(res => res.json())
+      .then(data => {
+        setVillages(data);
+        if (data.length > 0) setSelectedVillage(data[0]);
+      })
+      .catch(() => setError("Failed to load villages"))
+      .finally(() => setLoading(false));
   }, []);
 
-  const totalFarms = farmers.length;
-  const sensorsOnline = (() => {
-    const soilCount = soilManual.length;
-    return `${Math.max(0, Math.floor(soilCount * 0.8))}/${Math.max(1, soilCount)}`;
-  })();
-  const cropsRegistered = cropRegistrations.length;
-  const alertsToday = alerts.length;
+  // ------------------------------------------------------------
+  // Fetch soil readings + temperature + summary
+  // ------------------------------------------------------------
+  useEffect(() => {
+    if (!selectedVillage) return;
 
-  const statusCounts = useMemo(() => {
-    function statusFromRecord(r: any) {
-      const keys = ["fym_date","fym_quantity","ploughing_date","harrow_date"];
-      const filled = keys.filter(k => r[k] && String(r[k]).trim() !== "").length;
-      if (filled === 0) return "not_filled";
-      if (filled === keys.length) return "filled";
-      return "partial";
-    }
-    const filled = landPreps.filter(statusFromRecord).filter(s=>s==="filled").length;
-    const partial = landPreps.filter(statusFromRecord).filter(s=>s==="partial").length;
-    const notFilled = landPreps.filter(statusFromRecord).filter(s=>s==="not_filled").length;
-    return { filled, partial, notFilled };
-  }, [landPreps]);
+    const villageCode = selectedVillage.village_code;
 
-  const recentActivities = useMemo(() => {
-    const items: any[] = [];
-    const push = (msg: string, t: string) => items.push({ message: msg, time: t });
-    landPreps.slice(0, 6).forEach((r) => push(`LandPrep by ${r?.surveyor_id || r?.farmer_mobile || "unknown"}`, r.fym_date || r.ploughing_date || "recent"));
-    seedSelections.slice(0, 6).forEach((r) => push(`Seed selection by ${r?.surveyor_id || r?.farmer_mobile || "unknown"}`, r.sowing_date || "recent"));
-    nutrients.slice(0, 6).forEach((r) => push(`Nutrient reading for ${r?.crop_name_en || "crop"}`, r?.nutrient_count ? String(r.nutrient_count) : "recent"));
-    return items.slice(0, 12);
-  }, [landPreps, seedSelections, nutrients]);
+    setLoading(true);
+    setError(null);
 
-  const cropByDistrictData = useMemo(() => {
-    const map = new Map<string, number>();
-    (cropRegistrations || []).forEach((c: any) => {
-      const d = c.district_name || c.district || "Unknown";
-      map.set(d, (map.get(d) || 0) + 1);
+    Promise.all([
+      fetch(
+        `http://localhost:5000/api/farm-management/soil-moisture-sensor?start_date=${startDate}&end_date=${endDate}&zone_id=${encodeURIComponent(
+          selectedVillage.zone_id
+        )}`
+      )
+        .then(r => r.json())
+        .catch(() => []),
+
+      fetch(
+        `http://localhost:5000/api/farm-management/davis-weather-v_code?start_date=${startDate}&end_date=${endDate}&village_code=${encodeURIComponent(
+          villageCode
+        )}`
+      )
+        .then(r => r.json())
+        .catch(() => []),
+
+      fetch(
+        `http://localhost:5000/api/farm-management/farm-summary?village_code=${encodeURIComponent(
+          villageCode
+        )}`
+      )
+        .then(r => r.json())
+        .catch(() => []),
+    ])
+      .then(([soilRes, tempRes, summaryRes]) => {
+        setSoilReadings(Array.isArray(soilRes) ? soilRes : []);
+
+        // --------------------------
+        // FIX: Use reading_time
+        // --------------------------
+        setTemperature(
+          Array.isArray(tempRes)
+            ? tempRes.map((item) => ({
+                date: item.reading_time
+                  ? formatReadingTime(item.reading_time)
+                  : (item.date ??
+                    item.date_time?.split("T")[0] ??
+                    ""),
+                value: Number(item.temp_c ?? item.temp ?? 0),
+              }))
+            : []
+        );
+
+        setFarmSummary(Array.isArray(summaryRes) ? summaryRes : []);
+      })
+      .catch(() => setError("Failed fetching data"))
+      .finally(() => setLoading(false));
+  }, [selectedVillage, startDate, endDate]);
+
+  // ------------------------------------------------------------
+  // Extract sensor IDs
+  // ------------------------------------------------------------
+  const sensorIds = useMemo(() => {
+    const s = new Set<string>();
+    soilReadings.forEach(row => {
+      Object.keys(row).forEach(k => {
+        if (/^sensor\d+_name$/.test(k) && row[k]) s.add(row[k]);
+      });
     });
-    return Array.from(map.entries()).map(([k, v]) => ({ name: k, value: v }));
-  }, [cropRegistrations]);
+    return Array.from(s).sort();
+  }, [soilReadings]);
 
-  const nutrientCountTimeseries = useMemo(() => {
-    const flattened: any[] = [];
-    (nutrients || []).forEach((n:any) => {
-      try {
-        const arr = Array.isArray(n.nutrient_data) ? n.nutrient_data : JSON.parse(n.nutrient_data || "[]");
-        arr.forEach((rd: any) => flattened.push({ date: rd?.reading_date || "unknown", count: 1 }));
-      } catch { }
+  // Map sensor → farmer
+  const sensorToFarmer = useMemo(() => {
+    const m = new Map<string, string>();
+    soilReadings.forEach(row => {
+      const farmer = row.farmer_name ?? "Unknown Farmer";
+      Object.keys(row).forEach(k => {
+        const mm = k.match(/^sensor(\d+)_name$/);
+        if (mm && row[k]) m.set(row[k], farmer);
+      });
     });
-    const grouped: any = {};
-    flattened.forEach((it) => { grouped[it.date] = (grouped[it.date] || 0) + 1; });
-    return Object.entries(grouped).slice(-20).map(([k, v]) => ({ date: k, value: v }));
-  }, [nutrients]);
+    return m;
+  }, [soilReadings]);
 
-  if (loading) {
-    return (
-      <div className="w-full min-h-screen flex items-center justify-center bg-[#F5E9D4]/20 p-6">
-        <div className="text-center">
-          <div className="loader mb-3" />
-          <div className="text-lg text-[#2E3A3F]">Loading dashboard...</div>
-        </div>
-      </div>
+  // Farmers list
+  const farmerNames = useMemo(() => {
+    const arr: string[] = [];
+    const seen = new Set<string>();
+    soilReadings.forEach(r => {
+      const farmer = r.farmer_name ?? "Unknown Farmer";
+      if (!seen.has(farmer)) {
+        seen.add(farmer);
+        arr.push(farmer);
+      }
+    });
+    return arr;
+  }, [soilReadings]);
+
+  // Initialize visibility toggles
+  useEffect(() => {
+    const obj: Record<string, boolean> = {};
+    sensorIds.forEach(id => (obj[id] = true));
+    setVisibleSensors(obj);
+  }, [sensorIds.join("|")]);
+
+  useEffect(() => {
+    const obj: Record<string, boolean> = {};
+    farmerNames.forEach(f => (obj[f] = true));
+    setVisibleFarms(obj);
+  }, [farmerNames.join("|")]);
+
+  // farmer → sensors mapping
+  const farmerToSensors = useMemo(() => {
+    const m = new Map<string, Set<string>>();
+    soilReadings.forEach(row => {
+      const farmer = row.farmer_name ?? "Unknown Farmer";
+      if (!m.has(farmer)) m.set(farmer, new Set());
+      const set = m.get(farmer)!;
+
+      Object.keys(row).forEach(k => {
+        const mm = k.match(/^sensor(\d+)_name$/);
+        if (mm && row[k]) set.add(row[k]);
+      });
+    });
+
+    const out: Record<string, string[]> = {};
+    m.forEach((set, farmer) => (out[farmer] = Array.from(set)));
+    return out;
+  }, [soilReadings]);
+
+  // Merge soil sensor series
+  const mergedSensorSeries = useMemo(() => {
+    const map = new Map<string, any>();
+
+    soilReadings.forEach(row => {
+      const dateKey =
+        row.date ??
+        row.date_time?.split("T")[0] ??
+        row.reading_time ??
+        "";
+
+      if (!dateKey) return;
+
+      if (!map.has(dateKey)) map.set(dateKey, { date: dateKey });
+
+      const entry = map.get(dateKey);
+
+      Object.keys(row).forEach(k => {
+        const mm = k.match(/^sensor(\d+)_name$/);
+        if (mm) {
+          const idx = mm[1];
+          const sensor = row[k];
+          const val = Number(row[`sensor${idx}_value`]);
+          if (sensor && !Number.isNaN(val)) entry[sensor] = val;
+        }
+      });
+    });
+
+    return Array.from(map.values()).sort((a, b) =>
+      a.date.localeCompare(b.date)
     );
-  }
+  }, [soilReadings]);
 
+  // Active sensors
+  const activeSensorIds = useMemo(() => {
+    if (mode === "sensor") {
+      return sensorIds.filter(id => visibleSensors[id]);
+    }
+
+    const included = new Set<string>();
+    Object.entries(visibleFarms).forEach(([farmer, vis]) => {
+      if (!vis) return;
+      const sensors = farmerToSensors[farmer] ?? [];
+      sensors.forEach(s => included.add(s));
+    });
+
+    return Array.from(included).filter(id => visibleSensors[id]);
+  }, [mode, visibleSensors, visibleFarms, farmerToSensors, sensorIds]);
+
+  const toggleSensor = (id: string) =>
+    setVisibleSensors(prev => ({ ...prev, [id]: !prev[id] }));
+
+  const toggleFarm = (farmer: string) =>
+    setVisibleFarms(prev => ({ ...prev, [farmer]: !prev[farmer] }));
+
+  const colorFor = (i: number) => COLORS[i % COLORS.length];
+
+  const getFarmerForSensor = (s: string) =>
+    sensorToFarmer.get(s) ?? "Unknown Farmer";
+
+  // ------------------------------------------------------------
+  // Render
+  // ------------------------------------------------------------
   return (
-    <div className="w-full bg-[#F5E9D4]/20 min-h-screen">
-      <div className="max-w-6xl mx-auto p-6">
-        <div className="flex items-center justify-between mb-6">
+    <div className="w-full min-h-screen bg-[#F5E9D4]/10 p-6">
+      <div className="max-w-6xl mx-auto">
+        <h1 className="text-3xl font-bold text-[#2E3A3F] mb-6">
+          Operations Dashboard
+        </h1>
+
+        {/* CONTROLS */}
+        <div className="flex flex-wrap items-end gap-4 mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-[#2E3A3F]">Operations Dashboard</h1>
-            <p className="text-[#2E3A3F]/70 mt-1">Live overview of farms, sensors and operations</p>
-          </div>
-          <div className="flex gap-3 items-center">
-            <div className="text-sm text-[#2E3A3F]/60">Updated: {new Date().toLocaleString()}</div>
-            <button
-              onClick={() => location.reload()}
-              className="px-3 py-2 bg-white rounded border hover:shadow"
+            <label className="text-xs text-gray-600">Village</label>
+            <select
+              value={selectedVillage?.v_name ?? ""}
+              onChange={e =>
+                setSelectedVillage(
+                  villages.find(v => v.v_name === e.target.value)
+                )
+              }
+              className="border rounded px-3 py-2 ml-2"
             >
-              Refresh
-            </button>
+              {villages.map(v => (
+                <option key={v.village_code} value={v.v_name}>
+                  {v.v_name}
+                </option>
+              ))}
+            </select>
           </div>
+
+          <div>
+            <label className="text-xs text-gray-600">From</label>
+            <input
+              type="date"
+              className="border rounded px-2 py-2 ml-2"
+              value={startDate}
+              onChange={e => setStartDate(e.target.value)}
+              max={endDate}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-gray-600">To</label>
+            <input
+              type="date"
+              className="border rounded px-2 py-2 ml-2"
+              value={endDate}
+              onChange={e => setEndDate(e.target.value)}
+              min={startDate}
+            />
+          </div>
+
+          <div className="flex items-center gap-3 ml-4">
+            <label className="text-xs text-gray-600">Mode</label>
+            <label>
+              <input
+                type="radio"
+                checked={mode === "sensor"}
+                onChange={() => setMode("sensor")}
+              />
+              Sensor
+            </label>
+            <label>
+              <input
+                type="radio"
+                checked={mode === "farm"}
+                onChange={() => setMode("farm")}
+              />
+              Farm
+            </label>
+          </div>
+
+          <button
+            className="ml-auto px-3 py-2 border rounded bg-white"
+            onClick={() => {
+              const end = new Date();
+              const start = new Date();
+              start.setDate(end.getDate() - 20);
+              setStartDate(fmt(start));
+              setEndDate(fmt(end));
+            }}
+          >
+            Reset
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="rounded-xl border border-[#6D4C41]/15 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="rounded-full bg-[#F5E9D4] p-3 text-[#1B5E20]"><Sprout className="w-5 h-5" /></div>
-              <div>
-                <div className="text-xs text-[#2E3A3F]/70">Active Farms</div>
-                <div className="text-2xl font-semibold text-[#2E3A3F]">{totalFarms}</div>
-              </div>
-            </div>
+        {/* SIDEBAR + CHART */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
+          {/* LEFT PANEL */}
+          <div className="bg-white rounded-xl border p-4 shadow-sm">
+            <h3 className="text-sm font-semibold mb-2">Visibility</h3>
+
+            {mode === "sensor" ? (
+              <>
+                <div className="text-xs text-gray-600 mb-2">Sensors</div>
+                <div className="max-h-64 overflow-auto">
+                  {sensorIds.map((id, i) => (
+                    <label
+                      key={id}
+                      className="flex items-center gap-2 text-sm mb-1"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={!!visibleSensors[id]}
+                        onChange={() => toggleSensor(id)}
+                      />
+                      <span style={{ color: colorFor(i) }}>{id}</span>
+                      <span className="text-xs text-gray-500">
+                        — {getFarmerForSensor(id)}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-xs text-gray-600 mb-2">Farms</div>
+                <div className="max-h-64 overflow-auto">
+                  {farmerNames.map((farmer, i) => (
+                    <label
+                      key={farmer}
+                      className="flex items-center gap-2 text-sm mb-1"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={!!visibleFarms[farmer]}
+                        onChange={() => toggleFarm(farmer)}
+                      />
+                      <span style={{ color: colorFor(i) }}>{farmer}</span>
+                      <span className="text-xs text-gray-500">
+                        — {(farmerToSensors[farmer] ?? []).length} sensors
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
-          <div className="rounded-xl border border-[#6D4C41]/15 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="rounded-full bg-[#F5E9D4] p-3 text-[#7CB342]"><Droplets className="w-5 h-5" /></div>
-              <div>
-                <div className="text-xs text-[#2E3A3F]/70">Sensors Online</div>
-                <div className="text-2xl font-semibold text-[#2E3A3F]">{sensorsOnline}</div>
-              </div>
-            </div>
-          </div>
+          {/* SOIL CHART */}
+          <div className="lg:col-span-3 bg-white rounded-xl border p-4 shadow-sm">
+            <h3 className="text-md font-semibold mb-3">Soil Moisture</h3>
 
-          <div className="rounded-xl border border-[#6D4C41]/15 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="rounded-full bg-[#F5E9D4] p-3 text-[#6D4C41]"><MapPin className="w-5 h-5" /></div>
-              <div>
-                <div className="text-xs text-[#2E3A3F]/70">Crops Registered</div>
-                <div className="text-2xl font-semibold text-[#2E3A3F]">{cropsRegistered}</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-[#6D4C41]/15 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="rounded-full bg-[#F5E9D4] p-3 text-[#E03E3E]"><Bug className="w-5 h-5" /></div>
-              <div>
-                <div className="text-xs text-[#2E3A3F]/70">Alerts</div>
-                <div className="text-2xl font-semibold text-[#2E3A3F]">{alertsToday}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          <div className="lg:col-span-2 rounded-xl border border-[#6D4C41]/20 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-[#2E3A3F]">Nutrient Readings Over Time</h2>
-              <div className="text-sm text-[#2E3A3F]/60">Recent</div>
-            </div>
-            <div className="h-64">
-              {nutrientCountTimeseries.length ? (
+            <div style={{ height: 400 }}>
+              {mergedSensorSeries.length === 0 ? (
+                <div className="flex w-full h-full items-center justify-center text-gray-500">
+                  No readings
+                </div>
+              ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={nutrientCountTimeseries}>
+                  <LineChart
+                    data={mergedSensorSeries}
+                    key={mergedSensorSeries.length}
+                  >
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                    <XAxis dataKey="date" />
                     <YAxis />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="value" stroke="#1B5E20" strokeWidth={2} dot={{ r: 2 }} />
+
+                    <Tooltip
+                      isAnimationActive={false}
+                      position={undefined}
+                      cursor={{ strokeDasharray: "3 3" }}
+                    />
+
+                    <Legend />
+
+                    {sensorIds.map((sensor, i) => {
+                      if (!activeSensorIds.includes(sensor)) return null;
+                      const farmer = getFarmerForSensor(sensor);
+                      return (
+                        <Line
+                          key={sensor}
+                          dataKey={sensor}
+                          name={`${farmer} — ${sensor}`}
+                          stroke={colorFor(i)}
+                          strokeWidth={2}
+                          dot={false}
+                          isAnimationActive={false}
+                        />
+                      );
+                    })}
                   </LineChart>
                 </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center text-[#2E3A3F]/60">No nutrient timeseries</div>
               )}
             </div>
           </div>
+        </div>
 
-          <div className="rounded-xl border border-[#6D4C41]/20 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-[#2E3A3F]">Crop Registrations by District</h2>
-              <div className="text-sm text-[#2E3A3F]/60">Distribution</div>
-            </div>
-            <div className="h-64">
-              {cropByDistrictData.length ? (
+        {/* TEMPERATURE */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 bg-white rounded-xl border p-4 shadow-sm">
+            <h3 className="text-md font-semibold mb-3">Temperature</h3>
+
+            <div style={{ height: 180 }}>
+              {temperature.length === 0 ? (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  No temperature data
+                </div>
+              ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={cropByDistrictData}>
+                  <LineChart data={temperature} key={temperature.length}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                    <XAxis dataKey="date" />
                     <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="value" fill="#6D4C41" />
-                  </BarChart>
+
+                    {/* FINAL tooltip fix */}
+                    <Tooltip
+                      isAnimationActive={false}
+                      position={undefined}
+                      allowEscapeViewBox={{ x: true, y: true }}
+                      cursor={{ strokeDasharray: "3 3" }}
+                    />
+
+                    <Line
+                      dataKey="value"
+                      name="°C"
+                      stroke="#E65100"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </LineChart>
                 </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center text-[#2E3A3F]/60">No registrations</div>
               )}
             </div>
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          <div className="rounded-xl border border-[#6D4C41]/20 bg-white p-6 shadow-sm">
-            <h3 className="text-md font-semibold mb-3 text-[#2E3A3F]">Recent Activities</h3>
-            <div className="space-y-2">
-              {recentActivities.length ? recentActivities.map((act, i) => (
-                <div key={i} className="p-3 rounded border hover:shadow-sm">
-                  <div className="text-sm text-[#2E3A3F] font-medium">{act.message}</div>
-                  <div className="text-xs text-[#2E3A3F]/60 mt-1">{act.time}</div>
-                </div>
-              )) : <div className="text-sm text-[#2E3A3F]/60">No recent activities</div>}
-            </div>
-          </div>
+          {/* SUMMARY */}
+          <div className="bg-white rounded-xl border p-4 shadow-sm">
+            <h3 className="text-md font-semibold mb-3">Farm Summary</h3>
 
-          <div className="rounded-xl border border-[#6D4C41]/20 bg-white p-6 shadow-sm">
-            <h3 className="text-md font-semibold mb-3 text-[#2E3A3F]">Top Surveyors</h3>
-            <div className="space-y-2">
-              {surveyors.slice(0, 6).map((s, i) => (
-                <div key={i} className="flex items-center justify-between p-2 border rounded">
-                  <div>
-                    <div className="text-sm font-medium">{s.surveyor_name || s.name || `Surveyor ${s.surveyor_id || i}`}</div>
-                    <div className="text-xs text-[#2E3A3F]/60">{s.district_name || s.district || ""}</div>
-                  </div>
-                  <div className="text-sm text-[#2E3A3F]">{(s?.villages?.length) ?? "-"}</div>
-                </div>
-              ))}
-              {!surveyors.length && <div className="text-sm text-[#2E3A3F]/60">No surveyors</div>}
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-[#6D4C41]/20 bg-white p-6 shadow-sm">
-            <h3 className="text-md font-semibold mb-3 text-[#2E3A3F]">Alerts</h3>
-            <div className="space-y-2">
-              {alerts.length ? alerts.map((a, i) => (
-                <div key={i} className={`p-3 rounded border ${a.severity === "high" ? "bg-red-50 border-red-200" : a.severity === "warning" ? "bg-amber-50 border-amber-200" : "bg-blue-50 border-blue-200"}`}>
-                  <div className="text-sm font-medium text-[#2E3A3F]">{a.message}</div>
-                  <div className="text-xs text-[#2E3A3F]/60 mt-1">{a.time}</div>
-                </div>
-              )) : <div className="text-sm text-[#2E3A3F]/60">No alerts</div>}
-            </div>
+            {farmSummary.length === 0 ? (
+              <div className="text-gray-500">No summary data</div>
+            ) : (
+              <table className="w-full text-sm border">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="border p-2 text-left">Farmer</th>
+                    <th className="border p-2 text-left">Sensors</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {farmerNames.map(farmer => (
+                    <tr key={farmer}>
+                      <td className="border p-2">{farmer}</td>
+                      <td className="border p-2">
+                        {(farmerToSensors[farmer] ?? []).join(", ")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
 
-        <div className="rounded-xl border border-[#6D4C41]/20 bg-white p-6 shadow-sm mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-[#2E3A3F]">Farm Locations (Map)</h2>
-            <div className="text-sm text-[#2E3A3F]/60">Geospatial view</div>
-          </div>
-          <div className="h-72 rounded-lg border border-[#6D4C41]/10 bg-[#F5E9D4]/40 flex items-center justify-center">
-            <div className="text-center text-[#2E3A3F]/60">
-              <MapPin className="mx-auto mb-2" />
-              <div className="font-medium">Interactive Map Placeholder</div>
-              <div className="text-sm">Integrate Leaflet/Mapbox and pass farmer coordinates to visualize farms.</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex gap-3 items-center">
-          <div className="text-sm text-[#2E3A3F]/60">Data sources: farms, surveyors, crop registrations, sensors, weather.</div>
-          <div className="ml-auto text-xs text-[#2E3A3F]/50">© AgriAdvisory</div>
-        </div>
-
-        {error && <div className="mt-4 text-sm text-red-600">{error}</div>}
+        {error && <div className="text-red-500 mt-4">{error}</div>}
       </div>
     </div>
   );
