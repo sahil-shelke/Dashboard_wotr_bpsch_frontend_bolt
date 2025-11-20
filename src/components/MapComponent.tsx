@@ -221,9 +221,9 @@ export default function MapComponent({ height = "500px" }: MapComponentProps) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="gap-2">
-              <Layers className="h-4 w-4" />
+              <Layers className="h-4 w-4" aria-hidden="true" />
               Layers ({visibleLayerCount})
-              <ChevronDown className="h-4 w-4" />
+              <ChevronDown className="h-4 w-4" aria-hidden="true" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-64">
@@ -261,9 +261,9 @@ export default function MapComponent({ height = "500px" }: MapComponentProps) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="gap-2">
-              <Map className="h-4 w-4" />
+              <Map className="h-4 w-4" aria-hidden="true" />
               {mapType === 'street' ? 'Street View' : 'Satellite View'}
-              <ChevronDown className="h-4 w-4" />
+              <ChevronDown className="h-4 w-4" aria-hidden="true" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-48">
@@ -285,33 +285,34 @@ export default function MapComponent({ height = "500px" }: MapComponentProps) {
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="gap-2">
                 Zoom To
-                <ChevronDown className="h-4 w-4" />
+                <ChevronDown className="h-4 w-4" aria-hidden="true" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-48">
               <DropdownMenuLabel>Zoom to Layer</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {Array.from(visibleLayers)
-                .map(layerId => mapLayers.find(l => l.id === layerId))
-                .filter((layer): layer is MapLayer => layer !== undefined)
-                .map(layer => (
-                  <DropdownMenuCheckboxItem
-                    key={layer.id}
-                    checked={selectedLayer === layer.id}
-                    onCheckedChange={() => zoomToLayer(layer.id)}
-                    className="gap-2"
-                  >
-                    <span
-                      className="w-3 h-3 rounded border shrink-0"
-                      style={{
-                        backgroundColor: layer.fillColor,
-                        borderColor: layer.color,
-                        borderWidth: 2,
-                      }}
-                    />
-                    {layer.name}
-                  </DropdownMenuCheckboxItem>
-                ))}
+              <DropdownMenuRadioGroup value={selectedLayer || ''} onValueChange={(value) => zoomToLayer(value)}>
+                {Array.from(visibleLayers)
+                  .map(layerId => mapLayers.find(l => l.id === layerId))
+                  .filter((layer): layer is MapLayer => layer !== undefined)
+                  .map(layer => (
+                    <DropdownMenuRadioItem
+                      key={layer.id}
+                      value={layer.id}
+                      className="gap-2"
+                    >
+                      <span
+                        className="w-3 h-3 rounded border shrink-0"
+                        style={{
+                          backgroundColor: layer.fillColor,
+                          borderColor: layer.color,
+                          borderWidth: 2,
+                        }}
+                      />
+                      {layer.name}
+                    </DropdownMenuRadioItem>
+                  ))}
+              </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         )}
