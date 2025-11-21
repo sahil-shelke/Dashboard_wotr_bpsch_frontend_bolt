@@ -48,7 +48,6 @@ export default function MapComponent({ height = "500px" }: MapComponentProps) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const layersRef = useRef(new Map<string, L.GeoJSON>());
-  const markersRef = useRef(new Map<string, L.Marker>());
   const baseTileLayerRef = useRef<L.TileLayer | null>(null);
   const farmerLayerRef = useRef<L.GeoJSON | null>(null);
 
@@ -62,6 +61,7 @@ export default function MapComponent({ height = "500px" }: MapComponentProps) {
   const [selectedFarmer, setSelectedFarmer] = useState<FarmerData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loadingFarmers, setLoadingFarmers] = useState(false);
+  const [showFarmers, setShowFarmers] = useState(true);
 
   const staticLayers = new Set(["maharashtra", "districts"]);
 
@@ -133,7 +133,10 @@ export default function MapComponent({ height = "500px" }: MapComponentProps) {
 
     if (farmerLayerRef.current) {
       mapRef.current.removeLayer(farmerLayerRef.current);
+      farmerLayerRef.current = null;
     }
+
+    if (!showFarmers) return;
 
     const features: GeoJSON.Feature[] = farmerData.map((farmer) => ({
       type: "Feature",
@@ -184,7 +187,7 @@ export default function MapComponent({ height = "500px" }: MapComponentProps) {
         });
       },
     }).addTo(mapRef.current);
-  }, [farmerData]);
+  }, [farmerData, showFarmers]);
 
   const loadLayer = async (layer: MapLayer) => {
     if (loadedData.has(layer.id)) return;
@@ -245,16 +248,6 @@ export default function MapComponent({ height = "500px" }: MapComponentProps) {
             }).addTo(mapRef.current);
 
             layersRef.current.set(layer.id, geoJsonLayer);
-
-            if (layer.level === "cluster" && data.features.length > 0) {
-              const bounds = geoJsonLayer.getBounds();
-              const center = bounds.getCenter();
-
-              const marker = L.marker(center, { title: layer.name }).addTo(mapRef.current);
-              marker.bindPopup(`<strong>${layer.name}</strong>`);
-
-              markersRef.current.set(layer.id, marker);
-            }
           }
         }
       } else {
@@ -262,12 +255,6 @@ export default function MapComponent({ height = "500px" }: MapComponentProps) {
         if (existing && mapRef.current) {
           mapRef.current.removeLayer(existing);
           layersRef.current.delete(layer.id);
-        }
-
-        const marker = markersRef.current.get(layer.id);
-        if (marker && mapRef.current) {
-          mapRef.current.removeLayer(marker);
-          markersRef.current.delete(layer.id);
         }
       }
     });
@@ -313,9 +300,12 @@ export default function MapComponent({ height = "500px" }: MapComponentProps) {
         loading={loading}
         mapType={mapType}
         selectedLayer={selectedLayer}
+        showFarmers={showFarmers}
+        farmerCount={farmerData.length}
         onToggleLayer={toggleLayer}
         onMapTypeChange={setMapType}
         onZoomToLayer={zoomToLayer}
+        onToggleFarmers={() => setShowFarmers(!showFarmers)}
       />
 
       {error && <div className="text-sm text-red-600 bg-red-50 p-2 rounded">{error}</div>}
@@ -323,12 +313,6 @@ export default function MapComponent({ height = "500px" }: MapComponentProps) {
       {loadingFarmers && (
         <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded">
           Loading farmer data...
-        </div>
-      )}
-
-      {farmerData.length > 0 && (
-        <div className="text-sm text-green-600 bg-green-50 p-2 rounded">
-          Loaded {farmerData.length} farmers
         </div>
       )}
 
