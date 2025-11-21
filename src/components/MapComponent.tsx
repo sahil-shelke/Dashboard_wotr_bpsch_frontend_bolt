@@ -3,6 +3,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { mapLayers, MAHARASHTRA_CENTER, MAHARASHTRA_ZOOM, type MapLayer } from "../config/mapLayers";
 import MapControls from "./MapControls";
+import FarmerDetailsModal from "./FarmerDetailsModal";
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 
@@ -18,12 +19,38 @@ interface MapComponentProps {
 
 type MapType = "street" | "satellite";
 
+interface FarmerData {
+  farmer_id: string;
+  farmer_name: string;
+  farmer_mobile: string;
+  surveyor_id: string;
+  farmer_category: string;
+  block_code: string;
+  block_name: string;
+  district_code: string;
+  district_name: string;
+  village_code: string;
+  village_name: string;
+  crop_registrations: Array<{
+    crop_id: string;
+    plot_area: string;
+    season: string;
+    year: string;
+  }>;
+  geometry: {
+    type: string;
+    geometry: GeoJSON.Geometry;
+    properties: Record<string, any>;
+  };
+}
+
 export default function MapComponent({ height = "500px" }: MapComponentProps) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const layersRef = useRef(new Map<string, L.GeoJSON>());
   const markersRef = useRef(new Map<string, L.Marker>());
   const baseTileLayerRef = useRef<L.TileLayer | null>(null);
+  const farmerLayerRef = useRef<L.GeoJSON | null>(null);
 
   const [visibleLayers, setVisibleLayers] = useState<Set<string>>(new Set(["maharashtra", "districts"]));
   const [loading, setLoading] = useState<Set<string>>(new Set());
@@ -31,6 +58,10 @@ export default function MapComponent({ height = "500px" }: MapComponentProps) {
   const [loadedData, setLoadedData] = useState<Map<string, GeoJSON.FeatureCollection>>(new Map());
   const [selectedLayer, setSelectedLayer] = useState<string | null>(null);
   const [mapType, setMapType] = useState<MapType>("street");
+  const [farmerData, setFarmerData] = useState<FarmerData[]>([]);
+  const [selectedFarmer, setSelectedFarmer] = useState<FarmerData | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loadingFarmers, setLoadingFarmers] = useState(false);
 
   const staticLayers = new Set(["maharashtra", "districts"]);
 
@@ -77,6 +108,83 @@ export default function MapComponent({ height = "500px" }: MapComponentProps) {
       }).addTo(mapRef.current);
     }
   }, [mapType]);
+
+  useEffect(() => {
+    const fetchFarmers = async () => {
+      setLoadingFarmers(true);
+      try {
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/api/farmers/geojson`);
+        if (!response.ok) throw new Error("Failed to fetch farmer data");
+        const data: FarmerData[] = await response.json();
+        setFarmerData(data);
+      } catch (err) {
+        console.error("Error fetching farmers:", err);
+        setError("Failed to load farmer data");
+      } finally {
+        setLoadingFarmers(false);
+      }
+    };
+
+    fetchFarmers();
+  }, []);
+
+  useEffect(() => {
+    if (!mapRef.current || farmerData.length === 0) return;
+
+    if (farmerLayerRef.current) {
+      mapRef.current.removeLayer(farmerLayerRef.current);
+    }
+
+    const features: GeoJSON.Feature[] = farmerData.map((farmer) => ({
+      type: "Feature",
+      geometry: farmer.geometry.geometry,
+      properties: {
+        ...farmer.geometry.properties,
+        farmer_id: farmer.farmer_id,
+        farmer_name: farmer.farmer_name,
+      },
+    }));
+
+    const featureCollection: GeoJSON.FeatureCollection = {
+      type: "FeatureCollection",
+      features,
+    };
+
+    farmerLayerRef.current = L.geoJSON(featureCollection, {
+      style: () => ({
+        color: "#2563eb",
+        weight: 2,
+        opacity: 0.8,
+        fillColor: "#3b82f6",
+        fillOpacity: 0.3,
+      }),
+      onEachFeature: (feature, layer) => {
+        layer.on("click", () => {
+          const farmer = farmerData.find(
+            (f) => f.farmer_id === feature.properties?.farmer_id
+          );
+          if (farmer) {
+            setSelectedFarmer(farmer);
+            setIsModalOpen(true);
+          }
+        });
+
+        layer.on("mouseover", function () {
+          this.setStyle({
+            fillOpacity: 0.6,
+            weight: 3,
+          });
+        });
+
+        layer.on("mouseout", function () {
+          this.setStyle({
+            fillOpacity: 0.3,
+            weight: 2,
+          });
+        });
+      },
+    }).addTo(mapRef.current);
+  }, [farmerData]);
 
   const loadLayer = async (layer: MapLayer) => {
     if (loadedData.has(layer.id)) return;
@@ -212,10 +320,28 @@ export default function MapComponent({ height = "500px" }: MapComponentProps) {
 
       {error && <div className="text-sm text-red-600 bg-red-50 p-2 rounded">{error}</div>}
 
+      {loadingFarmers && (
+        <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded">
+          Loading farmer data...
+        </div>
+      )}
+
+      {farmerData.length > 0 && (
+        <div className="text-sm text-green-600 bg-green-50 p-2 rounded">
+          Loaded {farmerData.length} farmers
+        </div>
+      )}
+
       <div
         ref={containerRef}
         style={{ height, width: "100%" }}
         className="rounded-lg border z-0 relative"
+      />
+
+      <FarmerDetailsModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        farmerData={selectedFarmer}
       />
     </div>
   );
