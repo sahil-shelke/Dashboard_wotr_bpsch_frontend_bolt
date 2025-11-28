@@ -1,4 +1,4 @@
-"use client"
+
 
 import * as React from "react"
 import { useState, useEffect } from "react"
@@ -40,19 +40,10 @@ const navData = {
         { title: "Land Preparation", url: "/land-preparation" },
         { title: "Seed Selection", url: "/seed-selection" },
         { title: "Irrigation Management", url: "/irrigation" },
-        { title: "Weed Management", url: "/weed-management" },
+        // { title: "Weed Management", url: "/weed-management" },
         { title: "Nutrient Management", url: "/nutrient-management" },
         { title: "Pest Management", url: "/pest-management" },
         { title: "Harvest Management", url: "/harvest-management" },
-      ],
-    },
-    {
-      title: "Soil Moisture",
-      url: "#",
-      icon: Droplets,
-      items: [
-        { title: "Sensor Data", url: "/soil-moisture-sensor" },
-        { title: "Manual Readings", url: "/soil-moisture-manual" },
       ],
     },
     {
@@ -64,13 +55,31 @@ const navData = {
         { title: "Disease Survey", url: "/disease-survey" },
       ],
     },
+    {
+      title: "Ground Truth Data",
+      url: "#",
+      icon: Droplets,
+      items: [
+        { title: "Plant Nutrients", url: "/plant-nutrients", icon: Leaf },
+        { title: "Manual Readings", url: "/soil-moisture-manual" },
+      ],
+    },
+    {
+      title: "Sensor Network",
+      url: "#",
+      icon: Activity,
+      items: [
+        { title: "Weather Stations", url: "/weather", icon: CloudRain },
+        { title: "Sensor Data", url: "/soil-moisture-sensor" },
+      ],
+    },
   ],
   navSecondary: [
-    { title: "Plant Nutrients", url: "/plant-nutrients", icon: Leaf },
-    { title: "Crop Registrations", url: "/crop-registrations", icon: Wheat },
-    { title: "Weather Stations", url: "/weather", icon: CloudRain },
-    { title: "Farmers", url: "/farmers", icon: Users },
-    { title: "Surveyors", url: "/surveyors", icon: Users },
+   
+    // { title: "Crop Registrations", url: "/crop-registrations", icon: Wheat },
+   
+    // { title: "Farmers", url: "/farmers", icon: Users },
+    // { title: "Surveyors", url: "/surveyors", icon: Users },
   ],
 }
 
@@ -120,7 +129,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenuButton asChild>
               <a href="/" className="flex items-center gap-3 hover:bg-[#7CB342]/10">
                 <LayoutDashboard className="h-5 w-5" />
-                <span>Dashboard</span>
+                <span>Summary</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
