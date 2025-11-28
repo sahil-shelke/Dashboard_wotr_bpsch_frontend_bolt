@@ -757,14 +757,23 @@ export default function Dashboard(): JSX.Element {
           </div>
         </div>
 
-        {/* TEMPERATURE & RAINFALL */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* TEMPERATURE & RAINFALL - WRAPPER CARD */}
+        <div className="bg-white rounded-xl border p-4 shadow-sm mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-md font-semibold">Weather Data</h3>
+            <button
+              onClick={exportTemperatureCSV}
+              className="px-3 py-2 rounded bg-green-600 text-white hover:bg-green-700 text-sm"
+            >
+              Export CSV
+            </button>
+          </div>
 
-          {/* TEMPERATURE */}
-          <div className="bg-white rounded-xl border p-4 shadow-sm">
-            <h3 className="text-md font-semibold mb-3">Temperature</h3>
-
-            <div style={{ height: 250 }}>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* TEMPERATURE */}
+            <div>
+              <h4 className="text-sm font-medium mb-3 text-gray-700">Temperature</h4>
+              <div style={{ height: 250 }}>
               {temperature.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-gray-500">
                   No temperature data
@@ -813,22 +822,13 @@ export default function Dashboard(): JSX.Element {
                   </LineChart>
                 </ResponsiveContainer>
               )}
-            </div>
-          </div>
-
-          {/* RAINFALL */}
-          <div className="bg-white rounded-xl border p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-md font-semibold">Rainfall</h3>
-              <button
-                onClick={exportTemperatureCSV}
-                className="px-3 py-2 rounded bg-green-600 text-white hover:bg-green-700 text-sm"
-              >
-                Export CSV
-              </button>
+              </div>
             </div>
 
-            <div style={{ height: 250 }}>
+            {/* RAINFALL */}
+            <div>
+              <h4 className="text-sm font-medium mb-3 text-gray-700">Rainfall</h4>
+              <div style={{ height: 250 }}>
               {rainfall.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-gray-500">
                   No rainfall data
@@ -877,6 +877,7 @@ export default function Dashboard(): JSX.Element {
                   </LineChart>
                 </ResponsiveContainer>
               )}
+              </div>
             </div>
           </div>
         </div>
