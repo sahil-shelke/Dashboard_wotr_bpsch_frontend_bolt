@@ -18,6 +18,7 @@ L.Icon.Default.mergeOptions({
 interface VillageMapComponentProps {
   height?: string;
   villageCode: string | null;
+  currentTemperature?: number | null;
 }
 
 interface StationMetadata {
@@ -64,6 +65,7 @@ type MapType = "street" | "satellite";
 export default function VillageMapComponent({
   height = "500px",
   villageCode,
+  currentTemperature = null,
 }: VillageMapComponentProps) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -317,22 +319,22 @@ export default function VillageMapComponent({
       iconAnchor: [16, 16],
     });
 
+    const tooltipContent = `
+      <div style="font-family: sans-serif;">
+        <strong>Weather Station</strong><br/>
+        ${stationData.station_name}<br/>
+        <small>Elevation: ${stationData.elevation}m</small>
+        ${currentTemperature !== null ? `<br/><strong>Current Temp: ${currentTemperature.toFixed(1)}°C</strong>` : ''}
+      </div>
+    `;
+
     stationMarkerRef.current = L.marker([lat, lng], { icon: weatherIcon })
       .addTo(mapRef.current)
-      .bindTooltip(
-        `
-        <div style="font-family: sans-serif;">
-          <strong>Weather Station</strong><br/>
-          ${stationData.station_name}<br/>
-          <small>Elevation: ${stationData.elevation}m</small>
-        </div>
-        `,
-        {
-          permanent: false,
-          direction: 'top',
-        }
-      );
-  }, [stationData]);
+      .bindTooltip(tooltipContent, {
+        permanent: false,
+        direction: 'top',
+      });
+  }, [stationData, currentTemperature]);
 
   return (
     <div className="space-y-4">
