@@ -86,6 +86,7 @@ export default function Dashboard(): JSX.Element {
   const [endDate, setEndDate] = useState(fmt(DEFAULT_END));
 
   const [soilReadings, setSoilReadings] = useState<any[]>([]);
+  const [rawSoilData, setRawSoilData] = useState<any[]>([]);
   const [temperature, setTemperature] = useState<any[]>([]);
   const [rainfall, setRainfall] = useState<any[]>([]);
 
@@ -181,7 +182,9 @@ export default function Dashboard(): JSX.Element {
         .catch(() => []),
     ])
       .then(([soilRes, tempRes]) => {
-        setSoilReadings(Array.isArray(soilRes) ? soilRes : []);
+        const soilData = Array.isArray(soilRes) ? soilRes : [];
+        setSoilReadings(soilData);
+        setRawSoilData(soilData);
 
         // -------------------------------
         // TEMPERATURE (with timestamp)
@@ -353,38 +356,42 @@ export default function Dashboard(): JSX.Element {
   const getFarmerForSensor = (s: string) =>
     sensorToFarmer.get(s) ?? "Unknown Farmer";
 
-  // Export soil moisture data as CSV
+  // Export soil moisture data as CSV (same format as SoilMoistureSensor.tsx)
   function exportSoilCSV() {
-    if (!soilReadings || soilReadings.length === 0) {
+    if (!rawSoilData || rawSoilData.length === 0) {
       alert("No soil moisture data to export");
       return;
     }
 
     const headers = [
       "farmer_name",
-      "sensor_id",
-      "moisture_value",
+      "farmer_mobile",
+      "sensor1_name",
+      "sensor1_value",
+      "sensor2_name",
+      "sensor2_value",
+      "zone_id",
+      "district_name",
+      "block_name",
+      "village_name",
       "date",
-      "time",
-      "timestamp",
-      "district",
-      "block",
-      "village",
-      "zone_id"
+      "time"
     ];
 
-    const csvRows = soilReadings.map(row => {
+    const csvRows = rawSoilData.map(row => {
       const values = [
         row.farmer_name || "",
-        row.sensor_id || "",
-        row.moisture_value || row.value || "",
+        row.farmer_mobile || "",
+        row.sensor1_name || "",
+        row.sensor1_value || "",
+        row.sensor2_name || "",
+        row.sensor2_value || "",
+        row.zone_id || selectedVillage?.zone_id || "",
+        row.district_name || selectedDistrict || "",
+        row.block_name || selectedBlock || "",
+        row.village_name || selectedVillage?.v_name || "",
         row.date || "",
-        row.time || "",
-        row.timestamp || row.reading_time || "",
-        selectedDistrict || "",
-        selectedBlock || "",
-        selectedVillage?.v_name || "",
-        selectedVillage?.zone_id || ""
+        row.time || ""
       ];
 
       return values.map(v => {
@@ -402,7 +409,7 @@ export default function Dashboard(): JSX.Element {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `soil_moisture_${selectedVillage?.village_code || 'data'}_${startDate}_${endDate}.csv`;
+    a.download = `soil_moisture_live_${selectedVillage?.zone_id || 'data'}_${startDate}_${endDate}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
