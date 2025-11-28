@@ -80,6 +80,10 @@ export default function Dashboard(): JSX.Element {
   const [selectedDistrict, setSelectedDistrict] = useState<string>("");
   const [selectedBlock, setSelectedBlock] = useState<string>("");
   const [selectedVillage, setSelectedVillage] = useState<any | null>(null);
+
+  const [mapDistrict, setMapDistrict] = useState<string>("");
+  const [mapBlock, setMapBlock] = useState<string>("");
+  const [mapVillage, setMapVillage] = useState<any | null>(null);
   const [selectedFarmerVillage, setSelectedFarmerVillage] = useState<string | null>(null);
 
   const [startDate, setStartDate] = useState(fmt(DEFAULT_START));
@@ -133,6 +137,23 @@ export default function Dashboard(): JSX.Element {
     );
   }, [villages, selectedDistrict, selectedBlock]);
 
+  // MAP FILTERS
+  const mapBlocks = useMemo(() => {
+    if (!mapDistrict) return [];
+    const unique = new Set<string>();
+    villages
+      .filter(v => v.d_name === mapDistrict)
+      .forEach(v => unique.add(v.b_name));
+    return Array.from(unique).sort();
+  }, [villages, mapDistrict]);
+
+  const mapFilteredVillages = useMemo(() => {
+    if (!mapDistrict || !mapBlock) return [];
+    return villages.filter(
+      v => v.d_name === mapDistrict && v.b_name === mapBlock
+    );
+  }, [villages, mapDistrict, mapBlock]);
+
   // Update block when district changes
   useEffect(() => {
     if (selectedDistrict && blocks.length > 0) {
@@ -154,6 +175,37 @@ export default function Dashboard(): JSX.Element {
       setSelectedVillage(null);
     }
   }, [selectedBlock, filteredVillages]);
+
+  // MAP: Update block when district changes
+  useEffect(() => {
+    if (mapDistrict && mapBlocks.length > 0) {
+      if (!mapBlocks.includes(mapBlock)) {
+        setMapBlock(mapBlocks[0]);
+      }
+    } else if (!mapDistrict) {
+      setMapBlock("");
+    }
+  }, [mapDistrict, mapBlocks]);
+
+  // MAP: Update village when block changes
+  useEffect(() => {
+    if (mapBlock && mapFilteredVillages.length > 0) {
+      if (!mapFilteredVillages.find(v => v.village_code === mapVillage?.village_code)) {
+        setMapVillage(mapFilteredVillages[0]);
+      }
+    } else if (!mapBlock) {
+      setMapVillage(null);
+    }
+  }, [mapBlock, mapFilteredVillages]);
+
+  // MAP: Sync village code with selectedFarmerVillage
+  useEffect(() => {
+    if (mapVillage) {
+      setSelectedFarmerVillage(mapVillage.village_code);
+    } else {
+      setSelectedFarmerVillage(null);
+    }
+  }, [mapVillage]);
 
   // Fetch soil, temperature, rainfall
   useEffect(() => {
@@ -497,27 +549,64 @@ export default function Dashboard(): JSX.Element {
 
         {/* MAP SECTION */}
         <div className="bg-white rounded-xl border p-4 shadow-sm mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-md font-semibold">Geographic View - Farmer Plots</h3>
-            <div className="flex items-center gap-2">
-              <label htmlFor="farmer-village-select" className="text-sm font-medium text-gray-700">
-                Select Village:
-              </label>
+          <h3 className="text-md font-semibold mb-4">Geographic View - Farmer Plots</h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+              <label className="text-xs text-gray-600 block mb-1">District</label>
               <select
-                id="farmer-village-select"
-                value={selectedFarmerVillage || ""}
-                onChange={(e) => setSelectedFarmerVillage(e.target.value || null)}
-                className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={mapDistrict}
+                onChange={e => setMapDistrict(e.target.value)}
+                className="w-full border rounded px-3 py-2 text-sm"
+              >
+                <option value="">Select District</option>
+                {districts.map(d => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs text-gray-600 block mb-1">Block</label>
+              <select
+                value={mapBlock}
+                onChange={e => setMapBlock(e.target.value)}
+                className="w-full border rounded px-3 py-2 text-sm"
+                disabled={!mapDistrict}
+              >
+                <option value="">Select Block</option>
+                {mapBlocks.map(b => (
+                  <option key={b} value={b}>
+                    {b}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs text-gray-600 block mb-1">Village</label>
+              <select
+                value={mapVillage?.village_code ?? ""}
+                onChange={e =>
+                  setMapVillage(
+                    mapFilteredVillages.find(v => v.village_code === e.target.value) || null
+                  )
+                }
+                className="w-full border rounded px-3 py-2 text-sm"
+                disabled={!mapBlock}
               >
                 <option value="">Select Village</option>
-                {VILLAGES.map((village) => (
-                  <option key={village.code} value={village.code}>
-                    {village.name}
+                {mapFilteredVillages.map(v => (
+                  <option key={v.village_code} value={v.village_code}>
+                    {v.v_name}
                   </option>
                 ))}
               </select>
             </div>
           </div>
+
           <VillageMapComponent height="500px" villageCode={selectedFarmerVillage} />
         </div>
 
