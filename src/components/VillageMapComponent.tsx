@@ -18,7 +18,6 @@ L.Icon.Default.mergeOptions({
 interface VillageMapComponentProps {
   height?: string;
   villageCode: string | null;
-  currentTemperature?: number | null;
 }
 
 interface StationMetadata {
@@ -65,7 +64,6 @@ type MapType = "street" | "satellite";
 export default function VillageMapComponent({
   height = "500px",
   villageCode,
-  currentTemperature = null,
 }: VillageMapComponentProps) {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -81,6 +79,7 @@ export default function VillageMapComponent({
   const [loadingFarmers, setLoadingFarmers] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stationData, setStationData] = useState<StationMetadata | null>(null);
+  const [stationTemperature, setStationTemperature] = useState<number | null>(null);
 
   // ---------------------------------------------------------------
   // MAP INITIALIZATION
@@ -151,6 +150,7 @@ export default function VillageMapComponent({
     if (!villageCode) {
       setFarmerData([]);
       setStationData(null);
+      setStationTemperature(null);
       return;
     }
 
@@ -172,12 +172,32 @@ export default function VillageMapComponent({
           const allStations: StationMetadata[] = await stationResponse.json();
           const station = allStations.find(s => s.village_code === villageCode);
           setStationData(station || null);
+
+          if (station) {
+            const today = new Date().toISOString().split('T')[0];
+            const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+            const tempResponse = await fetch(
+              `/api/farm-management/davis-weather-v_code?start_date=${thirtyDaysAgo}&end_date=${today}&village_code=${encodeURIComponent(station.village_code)}`
+            );
+
+            if (tempResponse.ok) {
+              const tempData = await tempResponse.json();
+              if (Array.isArray(tempData) && tempData.length > 0) {
+                const latestTemp = tempData[tempData.length - 1];
+                setStationTemperature(Number(latestTemp.temp_c ?? latestTemp.temp ?? null));
+              } else {
+                setStationTemperature(null);
+              }
+            }
+          }
         }
       } catch (err) {
         console.error("Error fetching data:", err);
         setError("Failed to load data");
         setFarmerData([]);
         setStationData(null);
+        setStationTemperature(null);
       } finally {
         setLoadingFarmers(false);
       }
@@ -324,7 +344,7 @@ export default function VillageMapComponent({
         <strong>Weather Station</strong><br/>
         ${stationData.station_name}<br/>
         <small>Elevation: ${stationData.elevation}m</small>
-        ${currentTemperature !== null ? `<br/><strong>Current Temp: ${currentTemperature.toFixed(1)}°C</strong>` : ''}
+        ${stationTemperature !== null ? `<br/><strong>Current Temp: ${stationTemperature.toFixed(1)}°C</strong>` : ''}
       </div>
     `;
 
@@ -334,7 +354,7 @@ export default function VillageMapComponent({
         permanent: false,
         direction: 'top',
       });
-  }, [stationData, currentTemperature]);
+  }, [stationData, stationTemperature]);
 
   return (
     <div className="space-y-4">

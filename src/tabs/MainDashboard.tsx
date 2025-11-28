@@ -87,7 +87,6 @@ export default function Dashboard(): JSX.Element {
 
   const [soilReadings, setSoilReadings] = useState<any[]>([]);
   const [temperature, setTemperature] = useState<any[]>([]);
-  const [currentTemp, setCurrentTemp] = useState<number | null>(null);
   const [rainfall, setRainfall] = useState<any[]>([]);
 
   const [mode, setMode] = useState<"sensor" | "farm">("sensor");
@@ -187,27 +186,20 @@ export default function Dashboard(): JSX.Element {
         // -------------------------------
         // TEMPERATURE (with timestamp)
         // -------------------------------
-        const tempData = Array.isArray(tempRes)
-          ? tempRes.map((item) => {
-              const raw = item.reading_time || item.date_time || "";
-              const dateOnly = raw ? raw.split("T")[0] : "";
+        setTemperature(
+          Array.isArray(tempRes)
+            ? tempRes.map((item) => {
+                const raw = item.reading_time || item.date_time || "";
+                const dateOnly = raw ? raw.split("T")[0] : "";
 
-              return {
-                date: dateOnly,            // for X-axis
-                value: Number(item.temp_c ?? item.temp ?? 0),
-                timestamp: raw,            // full for tooltip
-              };
-            })
-          : [];
-
-        setTemperature(tempData);
-
-        // Set current temperature (latest reading)
-        if (tempData.length > 0) {
-          setCurrentTemp(tempData[tempData.length - 1].value);
-        } else {
-          setCurrentTemp(null);
-        }
+                return {
+                  date: dateOnly,            // for X-axis
+                  value: Number(item.temp_c ?? item.temp ?? 0),
+                  timestamp: raw,            // full for tooltip
+                };
+              })
+            : []
+        );
 
         // -------------------------------
         // RAINFALL (with timestamp)
@@ -394,11 +386,7 @@ export default function Dashboard(): JSX.Element {
               </select>
             </div>
           </div>
-          <VillageMapComponent
-            height="500px"
-            villageCode={selectedFarmerVillage}
-            currentTemperature={currentTemp}
-          />
+          <VillageMapComponent height="500px" villageCode={selectedFarmerVillage} />
         </div>
 
         {/* FILTERS */}
