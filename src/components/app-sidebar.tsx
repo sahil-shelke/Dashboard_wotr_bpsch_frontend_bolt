@@ -32,27 +32,31 @@ import {
 const navData = {
   navMain: [
     {
-      title: "Farm Management",
+      title: "Crop Monitoring",
       url: "#",
-      icon: Tractor,
+      icon: Sprout,
       isActive: false,
       items: [
-        { title: "Land Preparation", url: "/land-preparation" },
-        { title: "Seed Selection", url: "/seed-selection" },
-        { title: "Irrigation Management", url: "/irrigation" },
-        // { title: "Weed Management", url: "/weed-management" },
-        { title: "Nutrient Management", url: "/nutrient-management" },
-        { title: "Pest Management", url: "/pest-management" },
-        { title: "Harvest Management", url: "/harvest-management" },
-      ],
-    },
-    {
-      title: "Surveys",
-      url: "#",
-      icon: Activity,
-      items: [
-        { title: "Pest Survey", url: "/pest-survey" },
-        { title: "Disease Survey", url: "/disease-survey" },
+        {
+          title: "Farm Management",
+          url: "#",
+          items: [
+            { title: "Land Preparation", url: "/land-preparation" },
+            { title: "Seed Selection", url: "/seed-selection" },
+            { title: "Irrigation Management", url: "/irrigation" },
+            { title: "Nutrient Management", url: "/nutrient-management" },
+            { title: "Pest Management", url: "/pest-management" },
+            { title: "Harvest Management", url: "/harvest-management" },
+          ],
+        },
+        {
+          title: "Surveys",
+          url: "#",
+          items: [
+            { title: "Pest Survey", url: "/pest-survey" },
+            { title: "Disease Survey", url: "/disease-survey" },
+          ],
+        },
       ],
     },
     {
@@ -60,7 +64,7 @@ const navData = {
       url: "#",
       icon: Droplets,
       items: [
-        { title: "Plant Nutrients", url: "/plant-nutrients", icon: Leaf },
+        { title: "Plant Nutrients", url: "/plant-nutrients" },
         { title: "Manual Readings", url: "/soil-moisture-manual" },
       ],
     },
@@ -69,7 +73,7 @@ const navData = {
       url: "#",
       icon: Activity,
       items: [
-        { title: "Weather Stations", url: "/weather", icon: CloudRain },
+        { title: "Weather Stations", url: "/weather" },
         { title: "Sensor Data", url: "/soil-moisture-sensor" },
       ],
     },

@@ -29,6 +29,10 @@ export function NavMain({
     items?: {
       title: string
       url: string
+      items?: {
+        title: string
+        url: string
+      }[]
     }[]
   }[]
 }) {
@@ -65,16 +69,49 @@ export function NavMain({
               <CollapsibleContent>
                 <SidebarMenuSub>
                   {item.items?.map((subItem) => (
-                    <SidebarMenuSubItem key={subItem.title}>
-                      <SidebarMenuSubButton asChild className="hover:bg-[#7CB342]/10">
-                        <button
-                          onClick={() => handleSubItemClick(subItem.url)}
-                          className="text-[#2E3A3F]/80 hover:text-[#1B5E20] text-left w-full"
-                        >
-                          <span>{subItem.title}</span>
-                        </button>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
+                    subItem.items ? (
+                      <Collapsible
+                        key={subItem.title}
+                        asChild
+                        className="group/nested-collapsible"
+                      >
+                        <SidebarMenuSubItem>
+                          <CollapsibleTrigger asChild>
+                            <SidebarMenuSubButton className="hover:bg-[#7CB342]/10">
+                              <span className="text-[#2E3A3F]/80">{subItem.title}</span>
+                              <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/nested-collapsible:rotate-90 text-[#6D4C41]" />
+                            </SidebarMenuSubButton>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <SidebarMenuSub>
+                              {subItem.items.map((nestedItem) => (
+                                <SidebarMenuSubItem key={nestedItem.title} className="ml-4">
+                                  <SidebarMenuSubButton asChild className="hover:bg-[#7CB342]/10">
+                                    <button
+                                      onClick={() => handleSubItemClick(nestedItem.url)}
+                                      className="text-[#2E3A3F]/70 hover:text-[#1B5E20] text-left w-full"
+                                    >
+                                      <span>{nestedItem.title}</span>
+                                    </button>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              ))}
+                            </SidebarMenuSub>
+                          </CollapsibleContent>
+                        </SidebarMenuSubItem>
+                      </Collapsible>
+                    ) : (
+                      <SidebarMenuSubItem key={subItem.title}>
+                        <SidebarMenuSubButton asChild className="hover:bg-[#7CB342]/10">
+                          <button
+                            onClick={() => handleSubItemClick(subItem.url)}
+                            className="text-[#2E3A3F]/80 hover:text-[#1B5E20] text-left w-full"
+                          >
+                            <span>{subItem.title}</span>
+                          </button>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    )
                   ))}
                 </SidebarMenuSub>
               </CollapsibleContent>
