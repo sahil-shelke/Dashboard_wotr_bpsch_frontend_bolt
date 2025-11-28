@@ -88,6 +88,7 @@ export default function Dashboard(): JSX.Element {
   const [soilReadings, setSoilReadings] = useState<any[]>([]);
   const [rawSoilData, setRawSoilData] = useState<any[]>([]);
   const [temperature, setTemperature] = useState<any[]>([]);
+  const [rawTemperatureData, setRawTemperatureData] = useState<any[]>([]);
   const [rainfall, setRainfall] = useState<any[]>([]);
 
   const [mode, setMode] = useState<"sensor" | "farm">("sensor");
@@ -189,19 +190,19 @@ export default function Dashboard(): JSX.Element {
         // -------------------------------
         // TEMPERATURE (with timestamp)
         // -------------------------------
+        const tempData = Array.isArray(tempRes) ? tempRes : [];
+        setRawTemperatureData(tempData);
         setTemperature(
-          Array.isArray(tempRes)
-            ? tempRes.map((item) => {
-                const raw = item.reading_time || item.date_time || "";
-                const dateOnly = raw ? raw.split("T")[0] : "";
+          tempData.map((item) => {
+            const raw = item.reading_time || item.date_time || "";
+            const dateOnly = raw ? raw.split("T")[0] : "";
 
-                return {
-                  date: dateOnly,            // for X-axis
-                  value: Number(item.temp_c ?? item.temp ?? 0),
-                  timestamp: raw,            // full for tooltip
-                };
-              })
-            : []
+            return {
+              date: dateOnly,            // for X-axis
+              value: Number(item.temp_c ?? item.temp ?? 0),
+              timestamp: raw,            // full for tooltip
+            };
+          })
         );
 
         // -------------------------------
@@ -355,6 +356,76 @@ export default function Dashboard(): JSX.Element {
 
   const getFarmerForSensor = (s: string) =>
     sensorToFarmer.get(s) ?? "Unknown Farmer";
+
+  // Export temperature data as CSV (same format as DavisWeather.tsx)
+  function exportTemperatureCSV() {
+    if (!rawTemperatureData || rawTemperatureData.length === 0) {
+      alert("No temperature data to export");
+      return;
+    }
+
+    const headers = [
+      "station_name",
+      "reading_time",
+      "temp_c",
+      "high_temp_c",
+      "low_temp_c",
+      "humidity_percent",
+      "dew_point_c",
+      "wet_bulb_c",
+      "wind_speed_kmph",
+      "wind_direction_deg",
+      "high_wind_speed_kmph",
+      "high_wind_direction_deg",
+      "rain_mm",
+      "rain_rate_mm_per_hr",
+      "solar_rad_w_per_m2",
+      "high_solar_rad_w_per_m2",
+      "et_mm",
+      "barometer_hpa"
+    ];
+
+    const csvRows = rawTemperatureData.map(row => {
+      const values = [
+        row.station_name || "",
+        row.reading_time || row.date_time || "",
+        row.temp_c ?? row.temp ?? "",
+        row.high_temp_c ?? "",
+        row.low_temp_c ?? "",
+        row.humidity_percent ?? "",
+        row.dew_point_c ?? "",
+        row.wet_bulb_c ?? "",
+        row.wind_speed_kmph ?? "",
+        row.wind_direction_deg ?? "",
+        row.high_wind_speed_kmph ?? "",
+        row.high_wind_direction_deg ?? "",
+        row.rain_mm ?? "",
+        row.rain_rate_mm_per_hr ?? "",
+        row.solar_rad_w_per_m2 ?? "",
+        row.high_solar_rad_w_per_m2 ?? "",
+        row.et_mm ?? "",
+        row.barometer_hpa ?? ""
+      ];
+
+      return values.map(v => {
+        const s = String(v);
+        if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+          return `"${s.replace(/"/g, '""')}`;
+        }
+        return s;
+      }).join(",");
+    });
+
+    const csv = [headers.join(","), ...csvRows].join("\n");
+    const BOM = "\uFEFF";
+    const blob = new Blob([BOM + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `temperature_${selectedVillage?.village_code || 'data'}_${startDate}_${endDate}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   // Export soil moisture data as CSV (same format as SoilMoistureSensor.tsx)
   function exportSoilCSV() {
@@ -691,7 +762,15 @@ export default function Dashboard(): JSX.Element {
 
           {/* TEMPERATURE */}
           <div className="bg-white rounded-xl border p-4 shadow-sm">
-            <h3 className="text-md font-semibold mb-3">Temperature</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-md font-semibold">Temperature</h3>
+              <button
+                onClick={exportTemperatureCSV}
+                className="px-3 py-2 rounded bg-green-600 text-white hover:bg-green-700 text-sm"
+              >
+                Export CSV
+              </button>
+            </div>
 
             <div style={{ height: 250 }}>
               {temperature.length === 0 ? (
