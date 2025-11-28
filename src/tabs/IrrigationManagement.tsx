@@ -1,4 +1,4 @@
-"use client";
+
 
 import {
   useReactTable,
@@ -65,17 +65,13 @@ function mask(value: string) {
 
 function getStatus(record: IrrigationManagementRecord) {
   const fields = [
-    record.crop_residue_tonnes_per_plot,
-    record.crop_residue_mulching,
     record.irrigation_method,
-    record.plastic_mulching,
-    record.plastic_paper_micron,
-    record.plastic_mulching_date,
+    record.irrigation_data
   ];
   const filled = fields.filter(f => f && f.trim() !== "").length;
-  if (filled === 0) return "not_filled";
-  if (filled === fields.length) return "filled";
-  return "partial";
+  if (filled === 0) return "On-going";
+  if (filled >= fields.length) return "Completed";
+
 }
 
 function parseIrrigationData(data: string) {
@@ -104,7 +100,7 @@ export default function IrrigationManagementTable() {
     useState<IrrigationManagementRecord | null>(null);
 
   const [completionFilter, setCompletionFilter] =
-    useState<"all" | "filled" | "partial" | "not_filled">("all");
+    useState<"all" | "Completed" | "On-going">("Completed");
 
   const [districtFilter, setDistrictFilter] = useState("");
   const [blockFilter, setBlockFilter] = useState("");
@@ -205,7 +201,7 @@ export default function IrrigationManagementTable() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("http://localhost:5000/api/farm-management/irrigation");
+        const res = await fetch("/api/farm-management/irrigation");
         const json = await res.json();
         setData(Array.isArray(json) ? json : []);
       } finally {
@@ -215,7 +211,10 @@ export default function IrrigationManagementTable() {
     load();
   }, []);
 
-  const [sorting, setSorting] = useState<SortingState>([]);
+  const [sorting, setSorting] = useState<SortingState>([
+      { id: "irrigation_count", desc: true }
+
+  ]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 12 });
@@ -285,7 +284,11 @@ export default function IrrigationManagementTable() {
     );
 
     const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const BOM = "\uFEFF"; // UTF-8 BOM
+    const blob = new Blob([BOM + csv], {
+      type: "text/csv;charset=utf-8;",
+    });
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -409,22 +412,18 @@ export default function IrrigationManagementTable() {
             onChange={e => setCompletionFilter(e.target.value as any)}
           >
             <option value="all">All</option>
-            <option value="filled">Filled</option>
-            <option value="partial">Partial</option>
-            <option value="not_filled">Not Filled</option>
+            <option value="Completed">Completed</option>
+            <option value="On-going">On-going</option>
           </select>
 
-          <span className="px-4 py-1.5 rounded-full text-sm bg-green-100 text-green-700">
-            Filled: {data.filter(r => getStatus(r) === "filled").length}
+          {/* <span className="px-4 py-1.5 rounded-full text-sm bg-green-100 text-green-700">
+            Completed: {data.filter(r => getStatus(r) === "Completed").length}
           </span>
 
           <span className="px-4 py-1.5 rounded-full text-sm bg-yellow-100 text-yellow-700">
-            Partial: {data.filter(r => getStatus(r) === "partial").length}
-          </span>
+            On-going: {data.filter(r => getStatus(r) === "On-going").length}
+          </span> */}
 
-          <span className="px-4 py-1.5 rounded-full text-sm bg-red-100 text-red-700">
-            Not Filled: {data.filter(r => getStatus(r) === "not_filled").length}
-          </span>
 
           <span className="ml-auto text-sm text-gray-600">
             Showing {finalData.length} of {data.length} records
@@ -506,9 +505,9 @@ export default function IrrigationManagementTable() {
                   className={`
                     text-xs px-2 py-1 rounded
                     ${
-                      getStatus(selectedRecord) === "filled"
+                      getStatus(selectedRecord) === "Completed"
                         ? "bg-green-100 text-green-700"
-                        : getStatus(selectedRecord) === "partial"
+                        : getStatus(selectedRecord) === "On-going"
                         ? "bg-yellow-100 text-yellow-700"
                         : "bg-red-100 text-red-700"
                     }

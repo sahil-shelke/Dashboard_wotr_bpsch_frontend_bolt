@@ -1,4 +1,4 @@
-"use client";
+
 
 import {
   useReactTable,
@@ -185,7 +185,7 @@ export default function PestObservationTable() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("http://localhost:5000/api/farm-management/pest-survey");
+        const res = await fetch("/api/farm-management/pest-survey");
         const json = await res.json();
         setData(json);
       } finally {
@@ -261,7 +261,11 @@ export default function PestObservationTable() {
 
     const csv = [headers.join(","), ...csvRows].join("\n");
 
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+const BOM = "\uFEFF"; // UTF-8 BOM
+const blob = new Blob([BOM + csv], {
+  type: "text/csv;charset=utf-8;",
+});
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;

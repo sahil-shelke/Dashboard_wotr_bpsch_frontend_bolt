@@ -1,4 +1,4 @@
-"use client";
+
 
 import {
   useReactTable,
@@ -187,7 +187,7 @@ export default function NutrientMonitoringTable() {
     async function load() {
       try {
         const res = await fetch(
-          "http://localhost:5000/api/farm-management/plant-nutrients"
+          "/api/farm-management/plant-nutrients"
         );
         const json = await res.json();
         setData(Array.isArray(json) ? json : []);
@@ -301,7 +301,11 @@ export default function NutrientMonitoringTable() {
     );
 
     const csv = [headers.join(","), ...rows].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+const BOM = "\uFEFF"; // UTF-8 BOM
+const blob = new Blob([BOM + csv], {
+  type: "text/csv;charset=utf-8;",
+});
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;

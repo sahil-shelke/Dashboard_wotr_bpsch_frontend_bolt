@@ -1,4 +1,4 @@
-"use client";
+
 
 import {
   useReactTable,
@@ -140,7 +140,7 @@ export default function WeatherStationTable() {
     const apiStart = toApiDate(startDate);
     const apiEnd = toApiDate(endDate);
 
-    const url = `http://localhost:5000/api/farm-management/davis-weather?station_id=${stationCode}&start_date=${apiStart}&end_date=${apiEnd}`;
+    const url = `/api/farm-management/davis-weather?station_id=${stationCode}&start_date=${apiStart}&end_date=${apiEnd}`;
 
     try {
       const res = await fetch(url);

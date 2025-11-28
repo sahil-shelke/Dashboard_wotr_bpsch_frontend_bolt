@@ -1,4 +1,4 @@
-"use client";
+
 
 import {
   useReactTable,
@@ -127,17 +127,23 @@ function mask(value: any) {
 // STATUS (same simple rules used previously)
 // --------------------------------------------------
 function getStatus(record: SeedSelectionRecord) {
-  const fields = [
-    record.variety_name,
-    record.seed_rate_kg_per_plot,
-    record.sowing_date,
-    record.sowing_method,
-    record.spacing_cm_squared,
-  ];
+
+
+  const fields = [record.variety_name]  
+ 
+  if (record.crop_name_en=='Pomegranate'){
+    fields.push(record.bahar)
+    fields.push(record.plantation_date)
+  }
+  else
+  {
+    fields.push(record.sowing_date)
+    fields.push(record.seed_rate_kg_per_plot)
+  }
+  
   const filledCount = fields.filter((v) => v && String(v).trim() !== "").length;
-  if (filledCount === 0) return "not_filled";
-  if (filledCount === fields.length) return "filled";
-  return "partial";
+  if (filledCount === 0) return "On-going";
+  if (filledCount >= fields.length) return "Completed";
 }
 
 // --------------------------------------------------
@@ -161,7 +167,7 @@ export default function SeedSelectionTable() {
   const [selectedRecord, setSelectedRecord] = useState<SeedSelectionRecord | null>(null);
 
   const [completionFilter, setCompletionFilter] =
-    useState<"all" | "filled" | "partial" | "not_filled">("all");
+    useState<"all" | "Completed" | "On-going">("Completed");
 
   const [districtFilter, setDistrictFilter] = useState("");
   const [blockFilter, setBlockFilter] = useState("");
@@ -237,7 +243,7 @@ export default function SeedSelectionTable() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("http://localhost:5000/api/farm-management/seed_selection");
+        const res = await fetch("/api/farm-management/seed_selection");
         const json = await res.json();
         setData(Array.isArray(json) ? json : []);
       } catch (err) {
@@ -317,7 +323,11 @@ export default function SeedSelectionTable() {
     );
 
     const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const BOM = "\uFEFF"; // UTF-8 BOM
+    const blob = new Blob([BOM + csv], {
+      type: "text/csv;charset=utf-8;",
+    });
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -481,23 +491,18 @@ export default function SeedSelectionTable() {
             onChange={(e) => setCompletionFilter(e.target.value as any)}
           >
             <option value="all">All Records</option>
-            <option value="filled">Filled</option>
-            <option value="partial">Partial</option>
-            <option value="not_filled">Not Filled</option>
+            <option value="Completed">Completed</option>
+            <option value="On-going">On-going</option>
           </select>
 
-          <span className="px-4 py-1.5 rounded-full text-sm font-medium bg-green-100 text-green-700">
-            Filled: {data.filter((r) => getStatus(r) === "filled").length}
+          {/* <span className="px-4 py-1.5 rounded-full text-sm font-medium bg-green-100 text-green-700">
+              Completed: {data.filter((r) => getStatus(r) === "Completed").length}
           </span>
 
           <span className="px-4 py-1.5 rounded-full text-sm font-medium bg-yellow-100 text-yellow-700">
-            Partial: {data.filter((r) => getStatus(r) === "partial").length}
-          </span>
-
-          <span className="px-4 py-1.5 rounded-full text-sm font-medium bg-red-100 text-red-700">
-            Not Filled: {data.filter((r) => getStatus(r) === "not_filled").length}
-          </span>
-
+            On-going: {data.filter((r) => getStatus(r) === "On-going").length}
+          </span> */}
+            
           <span className="ml-auto text-sm text-gray-600">
             Showing {finalData.length} of {data.length} records
           </span>

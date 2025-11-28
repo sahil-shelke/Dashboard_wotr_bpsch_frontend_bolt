@@ -1,4 +1,4 @@
-"use client";
+
 
 import {
   useReactTable,
@@ -106,12 +106,7 @@ function parseSprayData(jsonStr: string | undefined): SprayItem[] {
 function getStatus(record: PestManagementRecord | null) {
   if (!record) return "not_filled";
 
-  const dateFields: string[] = [
-    record.first_pest_date,
-    record.light_trap_date,
-    record.pheromone_trap_date,
-    record.sticky_trap_date,
-  ];
+
 
   const bio = parseSprayData(record.biopesticide_spray);
   const fung = parseSprayData(record.fungicide_spray);
@@ -123,13 +118,12 @@ function getStatus(record: PestManagementRecord | null) {
     ...ins.map(i => i.date ?? ""),
   ];
 
-  const allDates = [...dateFields, ...sprayDates];
+  const allDates = [...sprayDates];
   const total = allDates.length;
   const filledCount = allDates.filter(d => d && String(d).trim() !== "").length;
 
-  if (total === 0 || filledCount === 0) return "not_filled";
-  if (filledCount === total) return "filled";
-  return "partial";
+  if (total === 0 || filledCount === 0) return "On-Going";
+  if (total >= 0) return "Completed";
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -155,7 +149,7 @@ export default function PestManagementTable() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<PestManagementRecord | null>(null);
 
-  const [completionFilter, setCompletionFilter] = useState<"all" | "filled" | "partial" | "not_filled">("all");
+  const [completionFilter, setCompletionFilter] = useState<"all" | "Completed" | "On-Going">("Completed");
 
   const [districtFilter, setDistrictFilter] = useState<string>("");
   const [blockFilter, setBlockFilter] = useState<string>("");
@@ -199,6 +193,15 @@ export default function PestManagementTable() {
         },
       });
     });
+   generated.push(
+  columnHelper.accessor(row => getSprayCount(row), {
+    id: "spray_count",
+    header: "Spray Count",
+    cell: info => info.getValue(),
+    sortingFn: "basic", // optional: react-table will handle it anyway
+  })
+);
+
 
     generated.push(
       columnHelper.display({
@@ -219,7 +222,7 @@ export default function PestManagementTable() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("http://localhost:5000/api/farm-management/pest-management");
+        const res = await fetch("/api/farm-management/pest-management");
         const json = await res.json();
         setData(Array.isArray(json) ? json : []);
       } catch (err) {
@@ -242,12 +245,11 @@ export default function PestManagementTable() {
     schemaFields.forEach(f => (s[f] = false));
     [
       "farmer_name",
-      "farmer_mobile",
       "crop_name_en",
-      "first_pest_date",
-      "light_trap",
-      "pheromone_trap",
-      "sticky_trap_date",
+      "block_name",
+      "district_name",
+      "village_name",
+
     ].forEach(f => (s[f] = true));
     return s;
   });
@@ -280,6 +282,13 @@ export default function PestManagementTable() {
     ).sort();
   }, [data, districtFilter, blockFilter]);
 
+  function getSprayCount(record: PestManagementRecord) {
+  const bio = parseSprayData(record.biopesticide_spray);
+  const fung = parseSprayData(record.fungicide_spray);
+  const ins = parseSprayData(record.insecticide_spray);
+
+  return bio.length + fung.length + ins.length;
+}
   const finalData = useMemo(() => {
     const g = globalFilter.trim().toLowerCase();
 
@@ -344,7 +353,11 @@ export default function PestManagementTable() {
       })
     );
     const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const BOM = "\uFEFF"; // UTF-8 BOM
+    const blob = new Blob([BOM + csv], {
+      type: "text/csv;charset=utf-8;",
+    });
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -457,22 +470,17 @@ export default function PestManagementTable() {
             onChange={e => setCompletionFilter(e.target.value as any)}
           >
             <option value="all">All Records</option>
-            <option value="filled">Filled</option>
-            <option value="partial">Partial</option>
-            <option value="not_filled">Not Filled</option>
+            <option value="Completed">Completed</option>
+            <option value="On-Going">On-Going</option>
           </select>
 
-          <span className="px-4 py-1.5 rounded-full text-sm font-medium bg-green-100 text-green-700">
-            Filled: {data.filter(r => getStatus(r) === "filled").length}
+          {/* <span className="px-4 py-1.5 rounded-full text-sm font-medium bg-green-100 text-green-700">
+            Completed: {data.filter(r => getStatus(r) === "Completed").length}
           </span>
 
           <span className="px-4 py-1.5 rounded-full text-sm font-medium bg-yellow-100 text-yellow-700">
-            Partial: {data.filter(r => getStatus(r) === "partial").length}
-          </span>
-
-          <span className="px-4 py-1.5 rounded-full text-sm font-medium bg-red-100 text-red-700">
-            Not Filled: {data.filter(r => getStatus(r) === "not_filled").length}
-          </span>
+            On-Going: {data.filter(r => getStatus(r) === "On-Going").length}
+          </span> */}
 
           <span className="ml-auto text-sm text-gray-600">
             Showing {finalData.length} of {data.length} records

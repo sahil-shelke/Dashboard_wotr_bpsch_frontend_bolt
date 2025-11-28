@@ -1,5 +1,3 @@
-"use client";
-
 import {
   useReactTable,
   getCoreRowModel,
@@ -121,12 +119,23 @@ function mask(value: any) {
   return "X".repeat(s.length - 4) + s.slice(-4);
 }
 
+function getTotalNutrients(r: NutrientManagementRecord) {
+  const nums = [
+    r.urea_basal_kg,
+    r.ssp_kg,
+    r.mop_kg,
+    r.dap_kg,
+    r.urea30das_kg,
+    r.urea45das_kg,
+    r.other_quantity_kg,
+    r.other2_quantity_kg,
+  ].map(v => parseFloat(v || "0"));
+
+  return nums.reduce((a, b) => a + (isNaN(b) ? 0 : b), 0);
+}
+
 function getStatus(r: NutrientManagementRecord) {
-  const fields = [r.urea_basal_dt, r.ssp_date, r.mop_date, r.dap_date];
-  const filled = fields.filter(v => v && String(v).trim() !== "").length;
-  if (filled === 0) return "not_filled";
-  if (filled === fields.length) return "filled";
-  return "partial";
+  return getTotalNutrients(r) > 0 ? "completed" : "ongoing";
 }
 
 function Field({ name, value }: any) {
@@ -146,7 +155,7 @@ export default function NutrientManagementTable() {
   const [selected, setSelected] = useState<NutrientManagementRecord | null>(null);
 
   const [completionFilter, setCompletionFilter] =
-    useState<"all" | "filled" | "partial" | "not_filled">("all");
+    useState<"all" | "completed" | "ongoing">("completed");
 
   const [districtFilter, setDistrictFilter] = useState("");
   const [blockFilter, setBlockFilter] = useState("");
@@ -156,8 +165,9 @@ export default function NutrientManagementTable() {
 
   const columnHelper = createColumnHelper<NutrientManagementRecord>();
 
-  const columns: ColumnDef<NutrientManagementRecord, any>[] = useMemo(() => {
-    const generated = schemaFields.map(field => {
+  // ⭐ FIX: CORRECT column typing
+  const columns = useMemo<ColumnDef<NutrientManagementRecord, any>[]>(() => {
+    const generated: ColumnDef<NutrientManagementRecord, any>[] = schemaFields.map(field => {
       if (field === "farmer_mobile" || field === "surveyor_id") {
         return columnHelper.accessor(field, {
           header: field.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()),
@@ -173,6 +183,55 @@ export default function NutrientManagementTable() {
         },
       });
     });
+
+    // ⭐ Total Nutrients Column (Sortable, Using Function)
+    generated.push(
+      columnHelper.accessor(row => getTotalNutrients(row), {
+        id: "total_nutrients",
+        header: "Total Nutrients (kg)",
+        enableSorting: true,
+        sortingFn: "basic",
+        cell: info => info.getValue().toFixed(2),
+      })
+    );
+
+
+
+//     generated.push(
+//   columnHelper.accessor(row => getSprayCount(row), {
+//     id: "spray_count",
+//     header: "Spray Count",
+//     cell: info => info.getValue(),
+//     sortingFn: "basic", // optional: react-table will handle it anyway
+//   })
+// );
+
+    // ⭐ Foliar Count
+    generated.push(
+      columnHelper.display({
+        id: "foliar_count",
+        header: "Foliar Count",
+        enableSorting: true,
+        sortingFn: (a, b) => {
+          const count = (r: any) => {
+            let c = 0;
+            if (r.foliar1_date || r.foliar1_name) c++;
+            if (r.foliar2_date || r.foliar2_name) c++;
+            if (r.foliar3_date || r.foliar3_name) c++;
+            return c;
+          };
+          return count(a.original) - count(b.original);
+        },
+        cell: ({ row }) => {
+          const r = row.original;
+          let c = 0;
+          if (r.foliar1_date || r.foliar1_name) c++;
+          if (r.foliar2_date || r.foliar2_name) c++;
+          if (r.foliar3_date || r.foliar3_name) c++;
+          return c;
+        },
+      })
+    );
 
     generated.push(
       columnHelper.display({
@@ -192,7 +251,7 @@ export default function NutrientManagementTable() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("http://localhost:5000/api/farm-management/nutrient-management");
+        const res = await fetch("/api/farm-management/nutrient-management");
         const json = await res.json();
         setData(Array.isArray(json) ? json : []);
       } finally {
@@ -211,15 +270,11 @@ export default function NutrientManagementTable() {
     const v: VisibilityState = {};
     schemaFields.forEach(f => (v[f] = false));
 
-    [
-      "farmer_name",
-      "farmer_mobile",
-      "crop_name_en",
-      "urea_basal_dt",
-      "ssp_date",
-      "mop_date",
-      "dap_date",
-    ].forEach(f => (v[f] = true));
+    v["farmer_name"] = true;
+    v["farmer_mobile"] = true;
+    v["crop_name_en"] = true;
+    v["total_nutrients"] = true;
+    v["foliar_count"] = true;
 
     return v;
   });
@@ -297,12 +352,25 @@ export default function NutrientManagementTable() {
   function exportCSV() {
     if (!finalData.length) return;
 
-    const headers = schemaFields;
+    const headers = [...schemaFields, "total_nutrients", "foliar_count"];
 
     const rows = finalData.map(row =>
       headers.map(h => {
-        let v: any = row[h];
+        let v: any = (row as any)[h];
         if (h === "farmer_mobile" || h === "surveyor_id") v = mask(v);
+
+        if (h === "total_nutrients") {
+          v = getTotalNutrients(row).toFixed(2);
+        }
+
+        if (h === "foliar_count") {
+          let c = 0;
+          if (row.foliar1_date || row.foliar1_name) c++;
+          if (row.foliar2_date || row.foliar2_name) c++;
+          if (row.foliar3_date || row.foliar3_name) c++;
+          v = c;
+        }
+
         if (v == null) return "";
         const s = String(v);
         if (s.includes(",") || s.includes('"')) return `"${s.replace(/"/g, '""')}"`;
@@ -311,7 +379,10 @@ export default function NutrientManagementTable() {
     );
 
     const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const BOM = "\uFEFF";
+    const blob = new Blob([BOM + csv], {
+      type: "text/csv;charset=utf-8;",
+    });
 
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -343,7 +414,7 @@ export default function NutrientManagementTable() {
 
             {showColumnMenu && (
               <div className="absolute right-0 mt-2 bg-white border rounded-lg shadow-lg w-60 p-3 z-50 max-h-72 overflow-y-auto">
-                {schemaFields.map(col => (
+                {[...schemaFields, "total_nutrients", "foliar_count"].map(col => (
                   <label key={col} className="flex gap-2 text-sm mb-2">
                     <input
                       type="checkbox"
@@ -432,22 +503,9 @@ export default function NutrientManagementTable() {
             onChange={e => setCompletionFilter(e.target.value as any)}
           >
             <option value="all">All</option>
-            <option value="filled">Filled</option>
-            <option value="partial">Partial</option>
-            <option value="not_filled">Not Filled</option>
+            <option value="completed">Completed</option>
+            <option value="ongoing">On-going</option>
           </select>
-
-          <span className="px-4 py-1.5 bg-green-100 text-green-700 text-sm rounded-full">
-            Filled: {data.filter(r => getStatus(r) === "filled").length}
-          </span>
-
-          <span className="px-4 py-1.5 bg-yellow-100 text-yellow-700 text-sm rounded-full">
-            Partial: {data.filter(r => getStatus(r) === "partial").length}
-          </span>
-
-          <span className="px-4 py-1.5 bg-red-100 text-red-700 text-sm rounded-full">
-            Not Filled: {data.filter(r => getStatus(r) === "not_filled").length}
-          </span>
 
           <span className="ml-auto text-sm text-gray-600">
             Showing {finalData.length} of {data.length}
@@ -523,14 +581,12 @@ export default function NutrientManagementTable() {
                 <h2 className="text-lg font-semibold">Nutrient Management Details</h2>
                 <span
                   className={`text-xs px-2 py-1 rounded ${
-                    getStatus(selected) === "filled"
+                    getStatus(selected) === "completed"
                       ? "bg-green-100 text-green-700"
-                      : getStatus(selected) === "partial"
-                      ? "bg-yellow-100 text-yellow-700"
-                      : "bg-red-100 text-red-700"
+                      : "bg-yellow-100 text-yellow-700"
                   }`}
                 >
-                  {getStatus(selected).replace("_", " ")}
+                  {getStatus(selected) === "completed" ? "Completed" : "On-going"}
                 </span>
               </div>
 
@@ -540,9 +596,22 @@ export default function NutrientManagementTable() {
             </div>
 
             <div className="space-y-4">
-              {schemaFields.map(key => {
-                let value: any = selected[key];
+              {[...schemaFields, "total_nutrients", "foliar_count"].map(key => {
+                let value: any = (selected as any)[key];
                 if (key === "farmer_mobile" || key === "surveyor_id") value = mask(value);
+
+                if (key === "total_nutrients") {
+                  value = getTotalNutrients(selected).toFixed(2);
+                }
+
+                if (key === "foliar_count") {
+                  let c = 0;
+                  if (selected.foliar1_date || selected.foliar1_name) c++;
+                  if (selected.foliar2_date || selected.foliar2_name) c++;
+                  if (selected.foliar3_date || selected.foliar3_name) c++;
+                  value = c;
+                }
+
                 return <Field key={key} name={key} value={value} />;
               })}
             </div>

@@ -1,4 +1,4 @@
-"use client";
+
 
 import {
   useReactTable,
@@ -196,9 +196,9 @@ export default function SoilMoistureLiveTable() {
       )}&start_date=${encodeURIComponent(startDate || "")}&end_date=${encodeURIComponent(endDate || "")}`;
 
       // using absolute localhost for dev environment like others
-      const fullUrl = url.startsWith("/api") ? `http://localhost:5000${url}` : url;
+      // const fullUrl = url.startsWith("/api") ? `${url}` : url;
 
-      const res = await fetch(fullUrl);
+      const res = await fetch(url);
       const json = await res.json();
       setData(Array.isArray(json) ? json : []);
     } catch (e) {
@@ -259,8 +259,12 @@ export default function SoilMoistureLiveTable() {
         return s;
       }).join(",")
     );
-    const csvContent = [headers.join(","), ...csvRows].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
+    const csv = [headers.join(","), ...csvRows].join("\n");
+    const BOM = "\uFEFF"; // UTF-8 BOM
+    const blob = new Blob([BOM + csv], {
+      type: "text/csv;charset=utf-8;",
+    });
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;

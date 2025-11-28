@@ -1,5 +1,3 @@
-"use client";
-
 import {
   useReactTable,
   getCoreRowModel,
@@ -149,7 +147,7 @@ export default function SoilManagementTable() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("http://localhost:5000/api/farm-management/soil-moisture-manual");
+        const res = await fetch("/api/farm-management/soil-moisture-manual");
         const json = await res.json();
         setData(json);
       } finally {
@@ -255,7 +253,11 @@ export default function SoilManagementTable() {
     );
 
     const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const BOM = "\uFEFF"; 
+    const blob = new Blob([BOM + csv], {
+      type: "text/csv;charset=utf-8;",
+    });
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -468,22 +470,36 @@ export default function SoilManagementTable() {
                     <thead className="bg-gray-100">
                       <tr>
                         <th className="border p-2">Date</th>
-                        <th className="border p-2">S1 Dry</th>
-                        <th className="border p-2">S1 Wet</th>
-                        <th className="border p-2">S2 Dry</th>
-                        <th className="border p-2">S2 Wet</th>
+                        <th className="border p-2">S1 (%)</th>
+                        <th className="border p-2">S2 (%)</th>
                       </tr>
                     </thead>
+
                     <tbody>
-                      {parseSoilData(selected?.soil_data || "").map((item, i) => (
-                        <tr key={i}>
-                          <td className="border p-2">{item.date || "—"}</td>
-                          <td className="border p-2">{item.sensor1Dry ?? "—"}</td>
-                          <td className="border p-2">{item.sensor1Wet ?? "—"}</td>
-                          <td className="border p-2">{item.sensor2Dry ?? "—"}</td>
-                          <td className="border p-2">{item.sensor2Wet ?? "—"}</td>
-                        </tr>
-                      ))}
+                      {parseSoilData(selected?.soil_data || "").map((item, i) => {
+                        const s1Dry = Number(item.sensor1Dry);
+                        const s1Wet = Number(item.sensor1Wet);
+                        const s2Dry = Number(item.sensor2Dry);
+                        const s2Wet = Number(item.sensor2Wet);
+
+                        const s1 =
+                          s1Dry && !isNaN(s1Dry) && !isNaN(s1Wet)
+                            ? (((s1Wet - s1Dry) / s1Dry) * 100).toFixed(2) + "%"
+                            : "—";
+
+                        const s2 =
+                          s2Dry && !isNaN(s2Dry) && !isNaN(s2Wet)
+                            ? (((s2Wet - s2Dry) / s2Dry) * 100).toFixed(2) + "%"
+                            : "—";
+
+                        return (
+                          <tr key={i}>
+                            <td className="border p-2">{item.date || "—"}</td>
+                            <td className="border p-2">{s1}</td>
+                            <td className="border p-2">{s2}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 )}

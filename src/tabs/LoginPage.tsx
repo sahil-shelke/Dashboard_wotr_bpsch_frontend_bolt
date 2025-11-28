@@ -1,4 +1,4 @@
-"use client";
+
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -19,7 +19,7 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const res = await fetch("http://localhost:5000/login/", {
+      const res = await fetch("/login/", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

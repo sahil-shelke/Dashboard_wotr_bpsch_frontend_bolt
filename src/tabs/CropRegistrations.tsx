@@ -1,5 +1,3 @@
-"use client";
-
 import {
   useReactTable,
   getCoreRowModel,
@@ -38,6 +36,28 @@ function safe(obj: any, key: string) {
   return v && String(v).trim() !== "" ? v : "—";
 }
 
+// ===========================
+// MASKING HELPERS
+// ===========================
+function maskMobile(m: string) {
+  if (!m) return "—";
+  return m.replace(/^\d{6}/, "XXXXXX");
+}
+
+function maskSurveyorId(id: string) {
+  if (!id) return "—";
+  return id.length <= 4 ? "XX" + id.slice(-2) : "XXXX" + id.slice(-4);
+}
+
+function maskFarmerId(fid: string) {
+  if (!fid) return "—";
+  const parts = fid.split("_");
+  if (parts.length !== 2) return fid;
+  const prefix = parts[0];
+  const num = parts[1];
+  return `${prefix}_XXXXXX${num.slice(-4)}`;
+}
+
 export default function CropRegistrationTable() {
   const [data, setData] = useState<CropRegistrationRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,15 +82,27 @@ export default function CropRegistrationTable() {
     columnHelper.accessor("block_name", { header: "Block" }),
     columnHelper.accessor("district_name", { header: "District" }),
 
-    columnHelper.accessor("surveyor_id", { header: "Surveyor ID" }),
-    columnHelper.accessor("farmer_mobile", { header: "Mobile" }),
+    columnHelper.accessor("surveyor_id", {
+      header: "Surveyor ID",
+      cell: ({ getValue }) => maskSurveyorId(getValue() as string),
+    }),
+
+    columnHelper.accessor("farmer_mobile", {
+      header: "Mobile",
+      cell: ({ getValue }) => maskMobile(getValue() as string),
+    }),
+
     columnHelper.accessor("plot_area", { header: "Plot Area" }),
     columnHelper.accessor("season", { header: "Season" }),
     columnHelper.accessor("year", { header: "Year" }),
 
     columnHelper.accessor("crop_registration_id", { header: "Reg ID" }),
     columnHelper.accessor("crop_id", { header: "Crop ID" }),
-    columnHelper.accessor("farmer_id", { header: "Farmer ID" }),
+
+    columnHelper.accessor("farmer_id", {
+      header: "Farmer ID",
+      cell: ({ getValue }) => maskFarmerId(getValue() as string),
+    }),
 
     columnHelper.display({
       id: "actions",
@@ -91,7 +123,7 @@ export default function CropRegistrationTable() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("http://localhost:5000/api/farm-management/crop-registrations");
+        const res = await fetch("/api/farm-management/crop-registrations");
         const json = await res.json();
         setData(json);
       } finally {
@@ -170,6 +202,8 @@ export default function CropRegistrationTable() {
       <div className="bg-white border border-gray-300 rounded-lg p-4 shadow-sm mb-6 w-full">
 
         <div className="flex justify-between mb-4">
+
+          {/* EXPORT CSV */}
           <button
             onClick={() => {
               const headers = Object.keys(filteredData[0] || {});
@@ -177,7 +211,12 @@ export default function CropRegistrationTable() {
 
               filteredData.forEach(rec => {
                 const row = headers.map(h => {
-                  const val = rec[h as keyof CropRegistrationRecord] ?? "";
+                  let val = rec[h as keyof CropRegistrationRecord] ?? "";
+
+                  if (h === "farmer_mobile") val = maskMobile(String(val));
+                  if (h === "surveyor_id") val = maskSurveyorId(String(val));
+                  if (h === "farmer_id") val = maskFarmerId(String(val));
+
                   const s = String(val);
                   return s.includes(",") ? `"${s}"` : s;
                 });
@@ -199,6 +238,7 @@ export default function CropRegistrationTable() {
             Export CSV
           </button>
 
+          {/* Column Menu */}
           <div className="relative inline-block text-left">
             <button
               onClick={() => setColumnVisibility(prev => ({ ...prev, __menu: !prev.__menu }))}
@@ -224,6 +264,7 @@ export default function CropRegistrationTable() {
           </div>
         </div>
 
+        {/* Filters */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 
           <div>
@@ -288,15 +329,16 @@ export default function CropRegistrationTable() {
           </div>
         </div>
 
-        {/* ✅ RECORD COUNT ADDED */}
+        {/* Record Count */}
         <div className="mt-4 flex justify-end">
-  <span className="text-sm text-gray-700">
-    Showing {filteredData.length} of {data.length} records
-  </span>
-</div>
+          <span className="text-sm text-gray-700">
+            Showing {filteredData.length} of {data.length} records
+          </span>
+        </div>
 
       </div>
 
+      {/* TABLE */}
       <div className={THEME.table.wrapper}>
         <table className={THEME.table.table}>
           <thead className={THEME.table.thead}>
@@ -334,6 +376,7 @@ export default function CropRegistrationTable() {
         </table>
       </div>
 
+      {/* Pagination */}
       <div className="flex gap-3 items-center mt-4">
         <button
           className="border px-3 py-1 rounded disabled:opacity-50"
@@ -356,6 +399,7 @@ export default function CropRegistrationTable() {
         </button>
       </div>
 
+      {/* MODAL */}
       {selected && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white w-[550px] max-h-[90vh] rounded-lg shadow-xl p-5 overflow-y-auto">
@@ -367,12 +411,20 @@ export default function CropRegistrationTable() {
             </div>
 
             <div className="space-y-4">
+
               <section>
                 <h3 className="text-sm font-semibold mb-2">Farmer Details</h3>
                 {["farmer_name", "farmer_mobile", "farmer_id"].map(k => (
                   <div key={k} className="border-b pb-2">
                     <div className="text-xs text-gray-500 uppercase">{k.replace(/_/g, " ")}</div>
-                    <div className="text-sm">{safe(selected, k)}</div>
+
+                    <div className="text-sm">
+                      {k === "farmer_mobile"
+                        ? maskMobile(selected.farmer_mobile)
+                        : k === "farmer_id"
+                        ? maskFarmerId(selected.farmer_id)
+                        : safe(selected, k)}
+                    </div>
                   </div>
                 ))}
               </section>
@@ -392,10 +444,16 @@ export default function CropRegistrationTable() {
                 {["surveyor_name", "surveyor_id", "village_name", "block_name", "district_name"].map(k => (
                   <div key={k} className="border-b pb-2">
                     <div className="text-xs text-gray-500 uppercase">{k.replace(/_/g, " ")}</div>
-                    <div className="text-sm">{safe(selected, k)}</div>
+
+                    <div className="text-sm">
+                      {k === "surveyor_id"
+                        ? maskSurveyorId(selected.surveyor_id)
+                        : safe(selected, k)}
+                    </div>
                   </div>
                 ))}
               </section>
+
             </div>
           </div>
         </div>

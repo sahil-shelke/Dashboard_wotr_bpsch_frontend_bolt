@@ -1,4 +1,4 @@
-"use client";
+
 
 import {
   useReactTable,
@@ -133,7 +133,7 @@ export default function SurveyorRecordsTable() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("http://localhost:5000/api/surveyors");
+        const res = await fetch("/api/surveyors/");
         const json = await res.json();
         setData(Array.isArray(json) ? json : []);
       } finally {

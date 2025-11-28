@@ -52,7 +52,7 @@ function useSessionCheck() {
           return;
         }
 
-        const res = await fetch("http://localhost:5000/login/verify-session", {
+        const res = await fetch("/login/verify-session", {
           method: "GET",
           credentials: "include",
           headers: {

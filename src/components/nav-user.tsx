@@ -4,6 +4,7 @@ import {
   ChevronsUpDown,
   LogOut,
 } from "lucide-react"
+import { useNavigate } from "react-router-dom"
 
 import {
   Avatar,
@@ -36,6 +37,28 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
+  const navigate = useNavigate()
+
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/login/logout", {
+        method: "POST",
+        credentials: "include",
+      })
+    } catch (error) {
+      console.error("Logout error:", error)
+    } finally {
+      localStorage.removeItem("authToken")
+      localStorage.removeItem("sessionEmail")
+      localStorage.removeItem("isAuthenticated")
+      navigate("/login")
+    }
+  }
+
+  const getInitials = (email: string) => {
+    const name = email.split("@")[0]
+    return name.substring(0, 2).toUpperCase()
+  }
 
   return (
     <SidebarMenu>
@@ -48,7 +71,7 @@ export function NavUser({
             >
               <Avatar className="h-8 w-8 rounded-lg">
                 <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="rounded-lg bg-[#1B5E20] text-white">AO</AvatarFallback>
+                <AvatarFallback className="rounded-lg bg-[#1B5E20] text-white">{getInitials(user.email)}</AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{user.name}</span>
@@ -66,7 +89,7 @@ export function NavUser({
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback className="rounded-lg bg-[#1B5E20] text-white">AO</AvatarFallback>
+                  <AvatarFallback className="rounded-lg bg-[#1B5E20] text-white">{getInitials(user.email)}</AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{user.name}</span>
@@ -86,7 +109,7 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={handleLogout}>
               <LogOut />
               Log out
             </DropdownMenuItem>

@@ -1,4 +1,4 @@
-"use client";
+
 
 import {
   useReactTable,
@@ -164,7 +164,7 @@ export default function WeedManagementTable() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("http://localhost:5000/api/farm-management/weed-management");
+        const res = await fetch("/api/farm-management/weed-management");
         const json = await res.json();
         setData(Array.isArray(json) ? json : []);
       } finally {
@@ -264,7 +264,11 @@ export default function WeedManagementTable() {
     );
 
     const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const BOM = "\uFEFF"; // UTF-8 BOM
+    const blob = new Blob([BOM + csv], {
+      type: "text/csv;charset=utf-8;",
+    });
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;

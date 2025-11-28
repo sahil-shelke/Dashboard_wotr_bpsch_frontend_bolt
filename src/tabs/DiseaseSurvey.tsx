@@ -1,4 +1,4 @@
-"use client";
+
 
 import {
   useReactTable,
@@ -132,7 +132,7 @@ export default function DiseaseObservationTable() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("http://localhost:5000/api/farm-management/disease-survey");
+        const res = await fetch("/api/farm-management/disease-survey");
         const json = await res.json();
         setData(json);
       } finally {

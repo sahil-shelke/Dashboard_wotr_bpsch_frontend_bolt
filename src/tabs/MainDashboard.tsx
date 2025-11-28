@@ -1,4 +1,4 @@
-"use client";
+
 
 import React, { useEffect, useMemo, useState, type JSX } from "react";
 import {
@@ -11,6 +11,7 @@ import {
   YAxis,
   Legend,
 } from "recharts";
+import VillageMapComponent from "../components/VillageMapComponent";
 
 // --------------------------------------------------
 // Helpers
@@ -23,7 +24,7 @@ function fmt(d: Date) {
 // Convert "10/29/25 12:00 AM" → "2025-10-29"
 function formatReadingTime(rt: string) {
   try {
-    const datePart = rt.split(" ")[0]; // "10/29/25"
+    const datePart = rt.split(" ")[0];
     const [m, d, y] = datePart.split("/");
 
     const fullYear = Number(y) < 50 ? `20${y}` : `19${y}`;
@@ -34,15 +35,41 @@ function formatReadingTime(rt: string) {
   }
 }
 
+// Convert full datetime → "MM/DD/YY hh:mm AM"
+function formatFullTimestamp(ts: string) {
+  try {
+    const d = new Date(ts);
+    return d.toLocaleString("en-US", {
+      month: "2-digit",
+      day: "2-digit",
+      year: "2-digit",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  } catch {
+    return ts;
+  }
+}
+
 const DEFAULT_END = new Date();
 const DEFAULT_START = new Date(DEFAULT_END);
 DEFAULT_START.setDate(DEFAULT_END.getDate() - 20);
 
-// colors
 const COLORS = [
   "#1B5E20", "#2E7D32", "#388E3C", "#43A047", "#66BB6A",
   "#7CB342", "#9CCC65", "#A5D6A7", "#0288D1", "#1565C0",
   "#6A1B9A", "#8E24AA", "#E65100", "#FB8C00", "#D84315",
+];
+
+const VILLAGES = [
+  { name: "Jaulke (Bk.)", code: "555805" },
+  { name: "Kadim Shahapur", code: "549372" },
+  { name: "Khadki", code: "547380" },
+  { name: "Massa (Kh.)", code: "561312" },
+  { name: "Kiraksal", code: "563429" },
+  { name: "Vaijubabhulgaon", code: "557953" },
+  { name: "Ninavi", code: "551112" },
 ];
 
 export default function Dashboard(): JSX.Element {
@@ -51,25 +78,24 @@ export default function Dashboard(): JSX.Element {
 
   const [villages, setVillages] = useState<any[]>([]);
   const [selectedVillage, setSelectedVillage] = useState<any | null>(null);
+  const [selectedFarmerVillage, setSelectedFarmerVillage] = useState<string | null>(VILLAGES[0].code);
 
   const [startDate, setStartDate] = useState(fmt(DEFAULT_START));
   const [endDate, setEndDate] = useState(fmt(DEFAULT_END));
 
   const [soilReadings, setSoilReadings] = useState<any[]>([]);
   const [temperature, setTemperature] = useState<any[]>([]);
-  const [farmSummary, setFarmSummary] = useState<any[]>([]);
+  const [rainfall, setRainfall] = useState<any[]>([]);
 
   const [mode, setMode] = useState<"sensor" | "farm">("sensor");
 
   const [visibleSensors, setVisibleSensors] = useState<Record<string, boolean>>({});
   const [visibleFarms, setVisibleFarms] = useState<Record<string, boolean>>({});
 
-  // ------------------------------------------------------------
-  // Load villages initially
-  // ------------------------------------------------------------
+  // Load all villages
   useEffect(() => {
     setLoading(true);
-    fetch("http://localhost:5000/api/villages/soil-moisture-villages")
+    fetch("/api/villages/soil-moisture-villages")
       .then(res => res.json())
       .then(data => {
         setVillages(data);
@@ -79,9 +105,7 @@ export default function Dashboard(): JSX.Element {
       .finally(() => setLoading(false));
   }, []);
 
-  // ------------------------------------------------------------
-  // Fetch soil readings + temperature + summary
-  // ------------------------------------------------------------
+  // Fetch soil, temperature, rainfall
   useEffect(() => {
     if (!selectedVillage) return;
 
@@ -92,7 +116,7 @@ export default function Dashboard(): JSX.Element {
 
     Promise.all([
       fetch(
-        `http://localhost:5000/api/farm-management/soil-moisture-sensor?start_date=${startDate}&end_date=${endDate}&zone_id=${encodeURIComponent(
+        `/api/farm-management/soil-moisture-sensor?start_date=${startDate}&end_date=${endDate}&zone_id=${encodeURIComponent(
           selectedVillage.zone_id
         )}`
       )
@@ -100,49 +124,57 @@ export default function Dashboard(): JSX.Element {
         .catch(() => []),
 
       fetch(
-        `http://localhost:5000/api/farm-management/davis-weather-v_code?start_date=${startDate}&end_date=${endDate}&village_code=${encodeURIComponent(
-          villageCode
-        )}`
-      )
-        .then(r => r.json())
-        .catch(() => []),
-
-      fetch(
-        `http://localhost:5000/api/farm-management/farm-summary?village_code=${encodeURIComponent(
+        `/api/farm-management/davis-weather-v_code?start_date=${startDate}&end_date=${endDate}&village_code=${encodeURIComponent(
           villageCode
         )}`
       )
         .then(r => r.json())
         .catch(() => []),
     ])
-      .then(([soilRes, tempRes, summaryRes]) => {
+      .then(([soilRes, tempRes]) => {
         setSoilReadings(Array.isArray(soilRes) ? soilRes : []);
 
-        // --------------------------
-        // FIX: Use reading_time
-        // --------------------------
+        // -------------------------------
+        // TEMPERATURE (with timestamp)
+        // -------------------------------
         setTemperature(
           Array.isArray(tempRes)
-            ? tempRes.map((item) => ({
-                date: item.reading_time
-                  ? formatReadingTime(item.reading_time)
-                  : (item.date ??
-                    item.date_time?.split("T")[0] ??
-                    ""),
-                value: Number(item.temp_c ?? item.temp ?? 0),
-              }))
+            ? tempRes.map((item) => {
+                const raw = item.reading_time || item.date_time || "";
+                const dateOnly = raw ? raw.split("T")[0] : "";
+
+                return {
+                  date: dateOnly,            // for X-axis
+                  value: Number(item.temp_c ?? item.temp ?? 0),
+                  timestamp: raw,            // full for tooltip
+                };
+              })
             : []
         );
 
-        setFarmSummary(Array.isArray(summaryRes) ? summaryRes : []);
+        // -------------------------------
+        // RAINFALL (with timestamp)
+        // -------------------------------
+        setRainfall(
+          Array.isArray(tempRes)
+            ? tempRes.map((item) => {
+                const raw = item.reading_time || item.date_time || "";
+                const dateOnly = raw ? raw.split("T")[0] : "";
+
+                return {
+                  date: dateOnly,            // for X-axis
+                  value: Number(item.rain_mm ?? 0),
+                  timestamp: raw,            // full for tooltip
+                };
+              })
+            : []
+        );
       })
       .catch(() => setError("Failed fetching data"))
       .finally(() => setLoading(false));
   }, [selectedVillage, startDate, endDate]);
 
-  // ------------------------------------------------------------
-  // Extract sensor IDs
-  // ------------------------------------------------------------
+  // Sensor IDs
   const sensorIds = useMemo(() => {
     const s = new Set<string>();
     soilReadings.forEach(row => {
@@ -180,7 +212,7 @@ export default function Dashboard(): JSX.Element {
     return arr;
   }, [soilReadings]);
 
-  // Initialize visibility toggles
+  // Init visibility
   useEffect(() => {
     const obj: Record<string, boolean> = {};
     sensorIds.forEach(id => (obj[id] = true));
@@ -193,7 +225,7 @@ export default function Dashboard(): JSX.Element {
     setVisibleFarms(obj);
   }, [farmerNames.join("|")]);
 
-  // farmer → sensors mapping
+  // Farmer → sensors
   const farmerToSensors = useMemo(() => {
     const m = new Map<string, Set<string>>();
     soilReadings.forEach(row => {
@@ -432,9 +464,21 @@ export default function Dashboard(): JSX.Element {
                     <YAxis />
 
                     <Tooltip
+                      wrapperStyle={{ zIndex: 1000, pointerEvents: "none" }}
+                      contentStyle={{
+                        backgroundColor: "white",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "8px",
+                        padding: "12px",
+                        boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                      }}
+                      labelStyle={{
+                        fontWeight: 600,
+                        fontSize: "14px",
+                        marginBottom: "4px",
+                      }}
+                      cursor={false}
                       isAnimationActive={false}
-                      position={undefined}
-                      cursor={{ strokeDasharray: "3 3" }}
                     />
 
                     <Legend />
@@ -461,12 +505,14 @@ export default function Dashboard(): JSX.Element {
           </div>
         </div>
 
-        {/* TEMPERATURE */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 bg-white rounded-xl border p-4 shadow-sm">
+        {/* TEMPERATURE & RAINFALL */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          
+          {/* TEMPERATURE */}
+          <div className="bg-white rounded-xl border p-4 shadow-sm">
             <h3 className="text-md font-semibold mb-3">Temperature</h3>
 
-            <div style={{ height: 180 }}>
+            <div style={{ height: 250 }}>
               {temperature.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-gray-500">
                   No temperature data
@@ -478,20 +524,39 @@ export default function Dashboard(): JSX.Element {
                     <XAxis dataKey="date" />
                     <YAxis />
 
-                    {/* FINAL tooltip fix */}
+                    {/* HOURWISE TOOLTIP */}
                     <Tooltip
+                      wrapperStyle={{ zIndex: 1000, pointerEvents: "none" }}
+                      contentStyle={{
+                        backgroundColor: "white",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "8px",
+                        padding: "12px",
+                        boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                      }}
+                      labelFormatter={(value, payload) => {
+                        if (payload && payload[0]?.payload?.timestamp) {
+                          return formatFullTimestamp(payload[0].payload.timestamp);
+                        }
+                        return value;
+                      }}
+                      itemStyle={{
+                        fontSize: "14px",
+                        color: "#E65100",
+                        fontWeight: 700,
+                      }}
+                      formatter={(value: any) => [`${value}°C`, "Temperature"]}
+                      cursor={false}
                       isAnimationActive={false}
-                      position={undefined}
-                      allowEscapeViewBox={{ x: true, y: true }}
-                      cursor={{ strokeDasharray: "3 3" }}
                     />
 
                     <Line
                       dataKey="value"
-                      name="°C"
+                      name="Temperature"
                       stroke="#E65100"
                       strokeWidth={2}
                       dot={false}
+                      activeDot={{ r: 6 }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -499,33 +564,86 @@ export default function Dashboard(): JSX.Element {
             </div>
           </div>
 
-          {/* SUMMARY */}
+          {/* RAINFALL */}
           <div className="bg-white rounded-xl border p-4 shadow-sm">
-            <h3 className="text-md font-semibold mb-3">Farm Summary</h3>
+            <h3 className="text-md font-semibold mb-3">Rainfall</h3>
 
-            {farmSummary.length === 0 ? (
-              <div className="text-gray-500">No summary data</div>
-            ) : (
-              <table className="w-full text-sm border">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="border p-2 text-left">Farmer</th>
-                    <th className="border p-2 text-left">Sensors</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {farmerNames.map(farmer => (
-                    <tr key={farmer}>
-                      <td className="border p-2">{farmer}</td>
-                      <td className="border p-2">
-                        {(farmerToSensors[farmer] ?? []).join(", ")}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+            <div style={{ height: 250 }}>
+              {rainfall.length === 0 ? (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  No rainfall data
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={rainfall} key={rainfall.length}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+
+                    {/* HOURWISE TOOLTIP */}
+                    <Tooltip
+                      wrapperStyle={{ zIndex: 1000, pointerEvents: "none" }}
+                      contentStyle={{
+                        backgroundColor: "white",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "8px",
+                        padding: "12px",
+                        boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                      }}
+                      labelFormatter={(value, payload) => {
+                        if (payload && payload[0]?.payload?.timestamp) {
+                          return formatFullTimestamp(payload[0].payload.timestamp);
+                        }
+                        return value;
+                      }}
+                      itemStyle={{
+                        fontSize: "14px",
+                        color: "#0288D1",
+                        fontWeight: 700,
+                      }}
+                      formatter={(value: any) => [`${value} mm`, "Rainfall"]}
+                      cursor={false}
+                      isAnimationActive={false}
+                    />
+
+                    <Line
+                      dataKey="value"
+                      name="Rainfall"
+                      stroke="#0288D1"
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={{ r: 6 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </div>
           </div>
+        </div>
+
+        {/* MAP SECTION */}
+        <div className="bg-white rounded-xl border p-4 shadow-sm mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-md font-semibold">Geographic View - Farmer Plots</h3>
+            <div className="flex items-center gap-2">
+              <label htmlFor="farmer-village-select" className="text-sm font-medium text-gray-700">
+                Select Village:
+              </label>
+              <select
+                id="farmer-village-select"
+                value={selectedFarmerVillage || ""}
+                onChange={(e) => setSelectedFarmerVillage(e.target.value)}
+                className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {VILLAGES.map((village) => (
+                  <option key={village.code} value={village.code}>
+                    {village.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <VillageMapComponent height="500px" villageCode={selectedFarmerVillage} />
         </div>
 
         {error && <div className="text-red-500 mt-4">{error}</div>}

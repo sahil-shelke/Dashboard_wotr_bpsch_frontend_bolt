@@ -1,4 +1,4 @@
-"use client";
+
 
 import {
   useReactTable,
@@ -146,7 +146,7 @@ export default function FarmerRecordsTable() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("http://localhost:5000/api/farmers");
+        const res = await fetch("/api/farmers/");
         const json = await res.json();
         setData(Array.isArray(json) ? json : []);
       } catch {
