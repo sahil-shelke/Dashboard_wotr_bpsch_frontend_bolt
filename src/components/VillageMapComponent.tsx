@@ -80,6 +80,9 @@ export default function VillageMapComponent({
   const [error, setError] = useState<string | null>(null);
   const [stationData, setStationData] = useState<StationMetadata | null>(null);
   const [stationTemperature, setStationTemperature] = useState<number | null>(null);
+  const [allStations, setAllStations] = useState<StationMetadata[]>([]);
+  const [stationTemperatures, setStationTemperatures] = useState<Record<string, number>>({});
+  const allStationMarkersRef = useRef<L.Marker[]>([]);
 
   // ---------------------------------------------------------------
   // MAP INITIALIZATION
@@ -142,6 +145,55 @@ export default function VillageMapComponent({
       ).addTo(mapRef.current);
     }
   }, [mapType]);
+
+  // ---------------------------------------------------------------
+  // FETCH ALL STATIONS ON MOUNT
+  // ---------------------------------------------------------------
+  useEffect(() => {
+    const fetchAllStations = async () => {
+      try {
+        const stationResponse = await fetch(`/api/villages/station_metadata`);
+        if (stationResponse.ok) {
+          const stations: StationMetadata[] = await stationResponse.json();
+          setAllStations(stations);
+
+          const today = new Date().toISOString().split('T')[0];
+          const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+          const tempPromises = stations.map(async (station) => {
+            try {
+              const tempResponse = await fetch(
+                `/api/farm-management/davis-weather-v_code?start_date=${thirtyDaysAgo}&end_date=${today}&village_code=${encodeURIComponent(station.village_code)}`
+              );
+              if (tempResponse.ok) {
+                const tempData = await tempResponse.json();
+                if (Array.isArray(tempData) && tempData.length > 0) {
+                  const latestTemp = tempData[tempData.length - 1];
+                  return [station.village_code, Number(latestTemp.temp_c ?? latestTemp.temp ?? null)];
+                }
+              }
+            } catch {
+              return null;
+            }
+            return null;
+          });
+
+          const temps = await Promise.all(tempPromises);
+          const tempMap: Record<string, number> = {};
+          temps.forEach(t => {
+            if (t && t[1] !== null) {
+              tempMap[t[0]] = t[1];
+            }
+          });
+          setStationTemperatures(tempMap);
+        }
+      } catch (err) {
+        console.error("Error fetching all stations:", err);
+      }
+    };
+
+    fetchAllStations();
+  }, []);
 
   // ---------------------------------------------------------------
   // FETCH FARMERS AND STATION WHEN VILLAGE CHANGES
@@ -299,7 +351,73 @@ export default function VillageMapComponent({
   }, [farmerData]);
 
   // ---------------------------------------------------------------
-  // DRAW WEATHER STATION MARKER
+  // DRAW ALL WEATHER STATION MARKERS WHEN NO VILLAGE SELECTED
+  // ---------------------------------------------------------------
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    // Clean up all station markers
+    allStationMarkersRef.current.forEach(marker => {
+      mapRef.current?.removeLayer(marker);
+    });
+    allStationMarkersRef.current = [];
+
+    // If no village selected, show all stations
+    if (!villageCode && allStations.length > 0) {
+      allStations.forEach(station => {
+        const lat = parseFloat(station.latitude);
+        const lng = parseFloat(station.longitude);
+
+        if (isNaN(lat) || isNaN(lng)) return;
+
+        const weatherIcon = L.divIcon({
+          className: 'custom-weather-icon',
+          html: `
+            <div style="
+              background-color: #ef4444;
+              border: 3px solid white;
+              border-radius: 50%;
+              width: 32px;
+              height: 32px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+              font-size: 18px;
+            ">
+              ☀️
+            </div>
+          `,
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+        });
+
+        const temp = stationTemperatures[station.village_code];
+        const tooltipContent = `
+          <div style="font-family: sans-serif;">
+            <strong>Weather Station</strong><br/>
+            ${station.station_name}<br/>
+            <small>Elevation: ${station.elevation}m</small>
+            ${temp !== undefined && temp !== null ? `<br/><strong>Current Temp: ${temp.toFixed(1)}°C</strong>` : ''}
+          </div>
+        `;
+
+        const marker = L.marker([lat, lng], { icon: weatherIcon })
+          .addTo(mapRef.current!)
+          .bindTooltip(tooltipContent, {
+            permanent: false,
+            direction: 'top',
+          });
+
+        allStationMarkersRef.current.push(marker);
+      });
+
+      return;
+    }
+  }, [villageCode, allStations, stationTemperatures]);
+
+  // ---------------------------------------------------------------
+  // DRAW WEATHER STATION MARKER FOR SELECTED VILLAGE
   // ---------------------------------------------------------------
   useEffect(() => {
     if (!mapRef.current) return;
@@ -310,7 +428,7 @@ export default function VillageMapComponent({
       stationMarkerRef.current = null;
     }
 
-    if (!stationData) return;
+    if (!stationData || !villageCode) return;
 
     const lat = parseFloat(stationData.latitude);
     const lng = parseFloat(stationData.longitude);

@@ -103,11 +103,6 @@ export default function Dashboard(): JSX.Element {
       .then(res => res.json())
       .then(data => {
         setVillages(data);
-        if (data.length > 0) {
-          setSelectedDistrict(data[0].d_name);
-          setSelectedBlock(data[0].b_name);
-          setSelectedVillage(data[0]);
-        }
       })
       .catch(() => setError("Failed to load villages"))
       .finally(() => setLoading(false));
@@ -144,6 +139,8 @@ export default function Dashboard(): JSX.Element {
       if (!blocks.includes(selectedBlock)) {
         setSelectedBlock(blocks[0]);
       }
+    } else if (!selectedDistrict) {
+      setSelectedBlock("");
     }
   }, [selectedDistrict, blocks]);
 
@@ -153,6 +150,8 @@ export default function Dashboard(): JSX.Element {
       if (!filteredVillages.find(v => v.village_code === selectedVillage?.village_code)) {
         setSelectedVillage(filteredVillages[0]);
       }
+    } else if (!selectedBlock) {
+      setSelectedVillage(null);
     }
   }, [selectedBlock, filteredVillages]);
 
