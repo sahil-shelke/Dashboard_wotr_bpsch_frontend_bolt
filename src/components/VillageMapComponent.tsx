@@ -20,6 +20,15 @@ interface VillageMapComponentProps {
   villageCode: string | null;
 }
 
+interface StationMetadata {
+  station_id: number;
+  station_name: string;
+  latitude: string;
+  longitude: string;
+  elevation: string;
+  village_code: string;
+}
+
 interface FarmerCompleteData {
   farmer: {
     geometry: {
@@ -60,6 +69,7 @@ export default function VillageMapComponent({
   const containerRef = useRef<HTMLDivElement>(null);
   const baseTileLayerRef = useRef<L.TileLayer | null>(null);
   const farmerLayerRef = useRef<L.GeoJSON | null>(null);
+  const stationMarkerRef = useRef<L.Marker | null>(null);
 
   const [mapType, setMapType] = useState<MapType>("satellite");
   const [farmerData, setFarmerData] = useState<FarmerCompleteData[]>([]);
@@ -68,6 +78,7 @@ export default function VillageMapComponent({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loadingFarmers, setLoadingFarmers] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stationData, setStationData] = useState<StationMetadata | null>(null);
 
   // ---------------------------------------------------------------
   // MAP INITIALIZATION
@@ -132,35 +143,45 @@ export default function VillageMapComponent({
   }, [mapType]);
 
   // ---------------------------------------------------------------
-  // FETCH FARMERS WHEN VILLAGE CHANGES
+  // FETCH FARMERS AND STATION WHEN VILLAGE CHANGES
   // ---------------------------------------------------------------
   useEffect(() => {
     if (!villageCode) {
       setFarmerData([]);
+      setStationData(null);
       return;
     }
 
-    const fetchFarmers = async () => {
+    const fetchData = async () => {
       setLoadingFarmers(true);
       setError(null);
 
       try {
-        const response = await fetch(
-          `/api/farmers/geojson/${villageCode}`
-        );
-        if (!response.ok) throw new Error("Failed to fetch farmer data");
-        const data: FarmerCompleteData[] = await response.json();
-        setFarmerData(data);
+        const [farmersResponse, stationResponse] = await Promise.all([
+          fetch(`/api/farmers/geojson/${villageCode}`),
+          fetch(`/api/villages/station_metadata`),
+        ]);
+
+        if (!farmersResponse.ok) throw new Error("Failed to fetch farmer data");
+        const farmersData: FarmerCompleteData[] = await farmersResponse.json();
+        setFarmerData(farmersData);
+
+        if (stationResponse.ok) {
+          const allStations: StationMetadata[] = await stationResponse.json();
+          const station = allStations.find(s => s.village_code === villageCode);
+          setStationData(station || null);
+        }
       } catch (err) {
-        console.error("Error fetching farmers:", err);
-        setError("Failed to load farmer data");
+        console.error("Error fetching data:", err);
+        setError("Failed to load data");
         setFarmerData([]);
+        setStationData(null);
       } finally {
         setLoadingFarmers(false);
       }
     };
 
-    fetchFarmers();
+    fetchData();
   }, [villageCode]);
 
   // ---------------------------------------------------------------
@@ -254,6 +275,64 @@ export default function VillageMapComponent({
       mapRef.current.fitBounds(bounds, { padding: [50, 50] });
     }
   }, [farmerData]);
+
+  // ---------------------------------------------------------------
+  // DRAW WEATHER STATION MARKER
+  // ---------------------------------------------------------------
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    // Remove previous marker
+    if (stationMarkerRef.current) {
+      mapRef.current.removeLayer(stationMarkerRef.current);
+      stationMarkerRef.current = null;
+    }
+
+    if (!stationData) return;
+
+    const lat = parseFloat(stationData.latitude);
+    const lng = parseFloat(stationData.longitude);
+
+    if (isNaN(lat) || isNaN(lng)) return;
+
+    const weatherIcon = L.divIcon({
+      className: 'custom-weather-icon',
+      html: `
+        <div style="
+          background-color: #ef4444;
+          border: 3px solid white;
+          border-radius: 50%;
+          width: 32px;
+          height: 32px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+          font-size: 18px;
+        ">
+          ☀️
+        </div>
+      `,
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
+    });
+
+    stationMarkerRef.current = L.marker([lat, lng], { icon: weatherIcon })
+      .addTo(mapRef.current)
+      .bindTooltip(
+        `
+        <div style="font-family: sans-serif;">
+          <strong>Weather Station</strong><br/>
+          ${stationData.station_name}<br/>
+          <small>Elevation: ${stationData.elevation}m</small>
+        </div>
+        `,
+        {
+          permanent: false,
+          direction: 'top',
+        }
+      );
+  }, [stationData]);
 
   return (
     <div className="space-y-4">
