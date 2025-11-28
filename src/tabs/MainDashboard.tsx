@@ -391,6 +391,31 @@ export default function Dashboard(): JSX.Element {
           </button>
         </div>
 
+        {/* MAP SECTION */}
+        <div className="bg-white rounded-xl border p-4 shadow-sm mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-md font-semibold">Geographic View - Farmer Plots</h3>
+            <div className="flex items-center gap-2">
+              <label htmlFor="farmer-village-select" className="text-sm font-medium text-gray-700">
+                Select Village:
+              </label>
+              <select
+                id="farmer-village-select"
+                value={selectedFarmerVillage || ""}
+                onChange={(e) => setSelectedFarmerVillage(e.target.value)}
+                className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {VILLAGES.map((village) => (
+                  <option key={village.code} value={village.code}>
+                    {village.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <VillageMapComponent height="500px" villageCode={selectedFarmerVillage} />
+        </div>
+
         {/* SIDEBAR + CHART */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
           {/* LEFT PANEL */}
@@ -507,7 +532,7 @@ export default function Dashboard(): JSX.Element {
 
         {/* TEMPERATURE & RAINFALL */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          
+
           {/* TEMPERATURE */}
           <div className="bg-white rounded-xl border p-4 shadow-sm">
             <h3 className="text-md font-semibold mb-3">Temperature</h3>
@@ -619,31 +644,6 @@ export default function Dashboard(): JSX.Element {
               )}
             </div>
           </div>
-        </div>
-
-        {/* MAP SECTION */}
-        <div className="bg-white rounded-xl border p-4 shadow-sm mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-md font-semibold">Geographic View - Farmer Plots</h3>
-            <div className="flex items-center gap-2">
-              <label htmlFor="farmer-village-select" className="text-sm font-medium text-gray-700">
-                Select Village:
-              </label>
-              <select
-                id="farmer-village-select"
-                value={selectedFarmerVillage || ""}
-                onChange={(e) => setSelectedFarmerVillage(e.target.value)}
-                className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {VILLAGES.map((village) => (
-                  <option key={village.code} value={village.code}>
-                    {village.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <VillageMapComponent height="500px" villageCode={selectedFarmerVillage} />
         </div>
 
         {error && <div className="text-red-500 mt-4">{error}</div>}
