@@ -119,8 +119,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   className="h-10 w-10 object-contain rounded-lg"
                 />
                 <div className="flex flex-col gap-0.5">
-                  <span className="font-semibold text-[#2E3A3F]">WOTR SURVEYOR</span>
-                  <span className="text-xs text-[#2E3A3F]/70">Farm Management System</span>
+                  <span className="font-semibold text-[#2E3A3F] whitespace-normal leading-tight">WOTR SURVEYOR</span>
+                  <span className="text-xs text-[#2E3A3F]/70 whitespace-normal leading-tight">Farm Management System</span>
                 </div>
               </a>
             </SidebarMenuButton>
@@ -133,7 +133,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenuButton asChild>
               <a href="/" className="flex items-center gap-3 hover:bg-[#7CB342]/10">
                 <LayoutDashboard className="h-5 w-5" />
-                <span>Summary</span>
+                <span className="whitespace-normal leading-tight">Summary</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -145,7 +145,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               <SidebarMenuButton asChild>
                 <a href={item.url} className="flex items-center gap-3 hover:bg-[#7CB342]/10">
                   <item.icon className="h-5 w-5" />
-                  <span>{item.title}</span>
+                  <span className="whitespace-normal leading-tight">{item.title}</span>
                 </a>
               </SidebarMenuButton>
             </SidebarMenuItem>
