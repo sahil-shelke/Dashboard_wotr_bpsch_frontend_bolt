@@ -77,6 +77,8 @@ export default function Dashboard(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
 
   const [villages, setVillages] = useState<any[]>([]);
+  const [selectedDistrict, setSelectedDistrict] = useState<string>("");
+  const [selectedBlock, setSelectedBlock] = useState<string>("");
   const [selectedVillage, setSelectedVillage] = useState<any | null>(null);
   const [selectedFarmerVillage, setSelectedFarmerVillage] = useState<string | null>(VILLAGES[0].code);
 
@@ -99,11 +101,58 @@ export default function Dashboard(): JSX.Element {
       .then(res => res.json())
       .then(data => {
         setVillages(data);
-        if (data.length > 0) setSelectedVillage(data[0]);
+        if (data.length > 0) {
+          setSelectedDistrict(data[0].d_name);
+          setSelectedBlock(data[0].b_name);
+          setSelectedVillage(data[0]);
+        }
       })
       .catch(() => setError("Failed to load villages"))
       .finally(() => setLoading(false));
   }, []);
+
+  // Get unique districts
+  const districts = useMemo(() => {
+    const unique = new Set<string>();
+    villages.forEach(v => unique.add(v.d_name));
+    return Array.from(unique).sort();
+  }, [villages]);
+
+  // Get blocks for selected district
+  const blocks = useMemo(() => {
+    if (!selectedDistrict) return [];
+    const unique = new Set<string>();
+    villages
+      .filter(v => v.d_name === selectedDistrict)
+      .forEach(v => unique.add(v.b_name));
+    return Array.from(unique).sort();
+  }, [villages, selectedDistrict]);
+
+  // Get villages for selected block
+  const filteredVillages = useMemo(() => {
+    if (!selectedDistrict || !selectedBlock) return [];
+    return villages.filter(
+      v => v.d_name === selectedDistrict && v.b_name === selectedBlock
+    );
+  }, [villages, selectedDistrict, selectedBlock]);
+
+  // Update block when district changes
+  useEffect(() => {
+    if (selectedDistrict && blocks.length > 0) {
+      if (!blocks.includes(selectedBlock)) {
+        setSelectedBlock(blocks[0]);
+      }
+    }
+  }, [selectedDistrict, blocks]);
+
+  // Update village when block changes
+  useEffect(() => {
+    if (selectedBlock && filteredVillages.length > 0) {
+      if (!filteredVillages.find(v => v.village_code === selectedVillage?.village_code)) {
+        setSelectedVillage(filteredVillages[0]);
+      }
+    }
+  }, [selectedBlock, filteredVillages]);
 
   // Fetch soil, temperature, rainfall
   useEffect(() => {
@@ -314,82 +363,6 @@ export default function Dashboard(): JSX.Element {
           Operations Dashboard
         </h1>
 
-        {/* CONTROLS */}
-        <div className="flex flex-wrap items-end gap-4 mb-6">
-          <div>
-            <label className="text-xs text-gray-600">Village</label>
-            <select
-              value={selectedVillage?.v_name ?? ""}
-              onChange={e =>
-                setSelectedVillage(
-                  villages.find(v => v.v_name === e.target.value)
-                )
-              }
-              className="border rounded px-3 py-2 ml-2"
-            >
-              {villages.map(v => (
-                <option key={v.village_code} value={v.v_name}>
-                  {v.v_name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="text-xs text-gray-600">From</label>
-            <input
-              type="date"
-              className="border rounded px-2 py-2 ml-2"
-              value={startDate}
-              onChange={e => setStartDate(e.target.value)}
-              max={endDate}
-            />
-          </div>
-
-          <div>
-            <label className="text-xs text-gray-600">To</label>
-            <input
-              type="date"
-              className="border rounded px-2 py-2 ml-2"
-              value={endDate}
-              onChange={e => setEndDate(e.target.value)}
-              min={startDate}
-            />
-          </div>
-
-          <div className="flex items-center gap-3 ml-4">
-            <label className="text-xs text-gray-600">Mode</label>
-            <label>
-              <input
-                type="radio"
-                checked={mode === "sensor"}
-                onChange={() => setMode("sensor")}
-              />
-              Sensor
-            </label>
-            <label>
-              <input
-                type="radio"
-                checked={mode === "farm"}
-                onChange={() => setMode("farm")}
-              />
-              Farm
-            </label>
-          </div>
-
-          <button
-            className="ml-auto px-3 py-2 border rounded bg-white"
-            onClick={() => {
-              const end = new Date();
-              const start = new Date();
-              start.setDate(end.getDate() - 20);
-              setStartDate(fmt(start));
-              setEndDate(fmt(end));
-            }}
-          >
-            Reset
-          </button>
-        </div>
 
         {/* MAP SECTION */}
         <div className="bg-white rounded-xl border p-4 shadow-sm mb-6">
@@ -414,6 +387,120 @@ export default function Dashboard(): JSX.Element {
             </div>
           </div>
           <VillageMapComponent height="500px" villageCode={selectedFarmerVillage} />
+        </div>
+
+        {/* FILTERS */}
+        <div className="bg-white rounded-xl border p-4 shadow-sm mb-6">
+          <h3 className="text-md font-semibold mb-4">Filters</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div>
+              <label className="text-xs text-gray-600 block mb-1">District</label>
+              <select
+                value={selectedDistrict}
+                onChange={e => setSelectedDistrict(e.target.value)}
+                className="w-full border rounded px-3 py-2 text-sm"
+              >
+                {districts.map(d => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs text-gray-600 block mb-1">Block</label>
+              <select
+                value={selectedBlock}
+                onChange={e => setSelectedBlock(e.target.value)}
+                className="w-full border rounded px-3 py-2 text-sm"
+                disabled={!selectedDistrict}
+              >
+                {blocks.map(b => (
+                  <option key={b} value={b}>
+                    {b}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs text-gray-600 block mb-1">Village</label>
+              <select
+                value={selectedVillage?.v_name ?? ""}
+                onChange={e =>
+                  setSelectedVillage(
+                    filteredVillages.find(v => v.v_name === e.target.value) || null
+                  )
+                }
+                className="w-full border rounded px-3 py-2 text-sm"
+                disabled={!selectedBlock}
+              >
+                {filteredVillages.map(v => (
+                  <option key={v.village_code} value={v.v_name}>
+                    {v.v_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs text-gray-600 block mb-1">From</label>
+              <input
+                type="date"
+                className="w-full border rounded px-3 py-2 text-sm"
+                value={startDate}
+                onChange={e => setStartDate(e.target.value)}
+                max={endDate}
+              />
+            </div>
+
+            <div>
+              <label className="text-xs text-gray-600 block mb-1">To</label>
+              <input
+                type="date"
+                className="w-full border rounded px-3 py-2 text-sm"
+                value={endDate}
+                onChange={e => setEndDate(e.target.value)}
+                min={startDate}
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-4 mt-4">
+            <div className="flex items-center gap-3">
+              <label className="text-xs text-gray-600">Mode:</label>
+              <label className="flex items-center gap-1 text-sm">
+                <input
+                  type="radio"
+                  checked={mode === "sensor"}
+                  onChange={() => setMode("sensor")}
+                />
+                Sensor
+              </label>
+              <label className="flex items-center gap-1 text-sm">
+                <input
+                  type="radio"
+                  checked={mode === "farm"}
+                  onChange={() => setMode("farm")}
+                />
+                Farm
+              </label>
+            </div>
+
+            <button
+              className="ml-auto px-4 py-2 border rounded bg-gray-100 hover:bg-gray-200 text-sm font-medium"
+              onClick={() => {
+                const end = new Date();
+                const start = new Date();
+                start.setDate(end.getDate() - 20);
+                setStartDate(fmt(start));
+                setEndDate(fmt(end));
+              }}
+            >
+              Reset Dates
+            </button>
+          </div>
         </div>
 
         {/* SIDEBAR + CHART */}
