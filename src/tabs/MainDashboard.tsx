@@ -762,15 +762,7 @@ export default function Dashboard(): JSX.Element {
 
           {/* TEMPERATURE */}
           <div className="bg-white rounded-xl border p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-md font-semibold">Temperature</h3>
-              <button
-                onClick={exportTemperatureCSV}
-                className="px-3 py-2 rounded bg-green-600 text-white hover:bg-green-700 text-sm"
-              >
-                Export CSV
-              </button>
-            </div>
+            <h3 className="text-md font-semibold mb-3">Temperature</h3>
 
             <div style={{ height: 250 }}>
               {temperature.length === 0 ? (
@@ -826,7 +818,15 @@ export default function Dashboard(): JSX.Element {
 
           {/* RAINFALL */}
           <div className="bg-white rounded-xl border p-4 shadow-sm">
-            <h3 className="text-md font-semibold mb-3">Rainfall</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-md font-semibold">Rainfall</h3>
+              <button
+                onClick={exportTemperatureCSV}
+                className="px-3 py-2 rounded bg-green-600 text-white hover:bg-green-700 text-sm"
+              >
+                Export CSV
+              </button>
+            </div>
 
             <div style={{ height: 250 }}>
               {rainfall.length === 0 ? (
