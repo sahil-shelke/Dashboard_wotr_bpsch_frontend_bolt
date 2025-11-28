@@ -353,6 +353,60 @@ export default function Dashboard(): JSX.Element {
   const getFarmerForSensor = (s: string) =>
     sensorToFarmer.get(s) ?? "Unknown Farmer";
 
+  // Export soil moisture data as CSV
+  function exportSoilCSV() {
+    if (!soilReadings || soilReadings.length === 0) {
+      alert("No soil moisture data to export");
+      return;
+    }
+
+    const headers = [
+      "farmer_name",
+      "sensor_id",
+      "moisture_value",
+      "date",
+      "time",
+      "timestamp",
+      "district",
+      "block",
+      "village",
+      "zone_id"
+    ];
+
+    const csvRows = soilReadings.map(row => {
+      const values = [
+        row.farmer_name || "",
+        row.sensor_id || "",
+        row.moisture_value || row.value || "",
+        row.date || "",
+        row.time || "",
+        row.timestamp || row.reading_time || "",
+        selectedDistrict || "",
+        selectedBlock || "",
+        selectedVillage?.v_name || "",
+        selectedVillage?.zone_id || ""
+      ];
+
+      return values.map(v => {
+        const s = String(v);
+        if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+          return `"${s.replace(/"/g, '""')}`;
+        }
+        return s;
+      }).join(",");
+    });
+
+    const csv = [headers.join(","), ...csvRows].join("\n");
+    const BOM = "\uFEFF";
+    const blob = new Blob([BOM + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `soil_moisture_${selectedVillage?.village_code || 'data'}_${startDate}_${endDate}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   // ------------------------------------------------------------
   // Render
   // ------------------------------------------------------------
@@ -558,7 +612,15 @@ export default function Dashboard(): JSX.Element {
 
           {/* SOIL CHART */}
           <div className="lg:col-span-3 bg-white rounded-xl border p-4 shadow-sm">
-            <h3 className="text-md font-semibold mb-3">Soil Moisture</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-md font-semibold">Soil Moisture</h3>
+              <button
+                onClick={exportSoilCSV}
+                className="px-3 py-2 rounded bg-green-600 text-white hover:bg-green-700 text-sm"
+              >
+                Export CSV
+              </button>
+            </div>
 
             <div style={{ height: 400 }}>
               {mergedSensorSeries.length === 0 ? (
