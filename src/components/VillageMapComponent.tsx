@@ -344,11 +344,24 @@ export default function VillageMapComponent({
       },
     }).addTo(mapRef.current);
 
-    const bounds = farmerLayerRef.current.getBounds();
-    if (bounds.isValid()) {
-      mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+    if (villageCode) {
+      const bounds = farmerLayerRef.current.getBounds();
+      if (bounds.isValid()) {
+        mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+      }
     }
-  }, [farmerData]);
+  }, [farmerData, villageCode]);
+
+  // ---------------------------------------------------------------
+  // RESET MAP VIEW WHEN NO VILLAGE SELECTED
+  // ---------------------------------------------------------------
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    if (!villageCode) {
+      mapRef.current.setView(MAHARASHTRA_CENTER, MAHARASHTRA_ZOOM);
+    }
+  }, [villageCode]);
 
   // ---------------------------------------------------------------
   // DRAW ALL WEATHER STATION MARKERS WHEN NO VILLAGE SELECTED
