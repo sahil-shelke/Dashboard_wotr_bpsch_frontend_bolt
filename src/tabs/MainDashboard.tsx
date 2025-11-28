@@ -107,6 +107,10 @@ export default function Dashboard(): JSX.Element {
       .then(res => res.json())
       .then(data => {
         setVillages(data);
+        const ahilyanagar = data.find((v: any) => v.d_name === "Ahilyanagar");
+        if (ahilyanagar) {
+          setSelectedDistrict("Ahilyanagar");
+        }
       })
       .catch(() => setError("Failed to load villages"))
       .finally(() => setLoading(false));
