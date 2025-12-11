@@ -4,6 +4,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useEffect } from 'react';
 
 import Header from '../components/Header';
+import WeatherForecast from '../components/WeatherForecast';
 import { useChat } from '../hooks/useChat';
 import ChatMessages from './ChatMessages';
 import ChatSidebar from './ChatSidebar';
@@ -100,6 +101,8 @@ function ChatInterface() {
           />
         </div>
       </div>
+
+      <WeatherForecast />
     </div>
   );
 }
