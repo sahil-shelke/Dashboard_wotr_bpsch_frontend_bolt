@@ -1,0 +1,32 @@
+/* Remove all default Vite template styling */
+#root {
+  margin: 0;
+  padding: 0;
+  max-width: none;
+  text-align: left;
+  width: 100%;
+  height: 100%;
+}
+
+/* Remove leftover Vite demo styles (logo, card, docs) */
+.logo,
+.card,
+.read-the-docs {
+  display: none !important;
+}
+
+/* Ensure body behaves like a dashboard app */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden; /* Let your layout manage scroll */
+  background: #fafafa;
+  font-family: sans-serif;
+}
+
+/* Optional: Smooth scroll in main content only */
+main {
+  scroll-behavior: smooth;
+}
