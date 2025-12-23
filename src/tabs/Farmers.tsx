@@ -1,5 +1,3 @@
-
-
 import {
   useReactTable,
   getCoreRowModel,
@@ -16,36 +14,41 @@ import {
 import { THEME } from "../utils/theme";
 import { useEffect, useMemo, useState } from "react";
 
-// ------------------------------------------------------
-// Types
-// ------------------------------------------------------
-export type CropRegistration = {
-  crop_id?: string;
-  plot_area?: string;
-  season?: string;
-  year?: string;
-  [k: string]: any;
-};
+const SEASONS = [
+  { id: 1, name: "Kharif" },
+  { id: 2, name: "Rabi" },
+  { id: 3, name: "Summer" },
+  { id: 4, name: "Annual" },
+];
 
 export type FarmerRecord = {
-  farmer_id?: string;
-  farmer_name?: string;
-  farmer_mobile?: string;
-  surveyor_id?: string;
-  farmer_category?: string;
-  block_code?: string;
-  block_name?: string;
-  district_code?: string;
-  district_name?: string;
-  village_code?: string;
-  village_name?: string;
-  crop_registrations?: CropRegistration[] | string;
-  [k: string]: any;
+  farmer_id: number;
+  farmer_name: string;
+  farmer_mobile: string;
+  farmer_category: string;
+  village_code: string;
+  village_name: string;
+  block_code: string;
+  block_name: string;
+  district_code: string;
+  district_name: string;
+  surveyor_phone: string;
 };
 
-// ------------------------------------------------------
-// Mask function
-// ------------------------------------------------------
+const schemaFields: (keyof FarmerRecord)[] = [
+  "farmer_id",
+  "farmer_name",
+  "farmer_mobile",
+  "farmer_category",
+  "village_code",
+  "village_name",
+  "block_code",
+  "block_name",
+  "district_code",
+  "district_name",
+  "surveyor_phone",
+];
+
 function maskNumber(v: any) {
   if (!v) return "—";
   const s = String(v);
@@ -53,15 +56,12 @@ function maskNumber(v: any) {
   return "X".repeat(s.length - 4) + s.slice(-4);
 }
 
-function parseCropRegs(raw: any): CropRegistration[] {
-  if (!raw) return [];
-  if (Array.isArray(raw)) return raw;
-  try {
-    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+function maskName(value: string) {
+  if (!value) return "—";
+  const parts = value.split(" ");
+  const first = parts[0];
+  parts[0] = "X".repeat(first.length);
+  return parts.join(" ");
 }
 
 function safeVal<T extends object, K extends keyof T>(obj: T | null, key: K) {
@@ -70,7 +70,17 @@ function safeVal<T extends object, K extends keyof T>(obj: T | null, key: K) {
   return v;
 }
 
-// ------------------------------------------------------
+function Field({ name, value }: any) {
+  return (
+    <div className="border-b pb-2">
+      <div className="text-xs uppercase text-gray-500">
+        {name.replace(/_/g, " ")}
+      </div>
+      <div className="text-sm">{value || "—"}</div>
+    </div>
+  );
+}
+
 export default function FarmerRecordsTable() {
   const [data, setData] = useState<FarmerRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,69 +94,80 @@ export default function FarmerRecordsTable() {
   const [villageFilter, setVillageFilter] = useState("");
 
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 12 });
+  const [showColumnMenu, setShowColumnMenu] = useState(false);
+
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportSeasonId, setExportSeasonId] = useState(1);
+  const [exportSeasonYear, setExportSeasonYear] = useState(new Date().getFullYear());
+  const [isExporting, setIsExporting] = useState(false);
 
   const columnHelper = createColumnHelper<FarmerRecord>();
 
-  // ------------------------------------------------------
-  // Columns
-  // ------------------------------------------------------
-  const columns = [
-    columnHelper.accessor("farmer_id", { header: "Farmer ID" }),
-    columnHelper.accessor("farmer_category", { header: "Category" }),
-    columnHelper.accessor("block_code", { header: "Block Code" }),
-    columnHelper.accessor("district_code", { header: "District Code" }),
-    columnHelper.accessor("village_code", { header: "Village Code" }),
+  const columns = useMemo(() => {
+    const generated = schemaFields.map(field => {
+      if (field === "farmer_name") {
+        return columnHelper.accessor(field, {
+          header: field.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()),
+          cell: info => maskName(info.getValue()),
+        });
+      }
 
-    columnHelper.accessor("farmer_name", { header: "Farmer Name" }),
+      if (field === "farmer_mobile" || field === "surveyor_phone") {
+        return columnHelper.accessor(field, {
+          header: field.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()),
+          cell: info => maskNumber(info.getValue()),
+        });
+      }
 
-    // MASKED mobile
-    columnHelper.accessor("farmer_mobile", {
-      header: "Mobile",
-      cell: ({ getValue }) => maskNumber(getValue()),
-    }),
+      return columnHelper.accessor(field, {
+        header: field.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()),
+        cell: info => {
+          const v = info.getValue();
+          if (v === null || v === undefined) return "—";
+          return String(v);
+        },
+      });
+    });
 
-    // MASKED surveyor id
-    columnHelper.accessor("surveyor_id", {
-      header: "Surveyor ID",
-      cell: ({ getValue }) => maskNumber(getValue()),
-    }),
+    generated.push(
+      columnHelper.display({
+        id: "actions",
+        header: "Actions",
+        cell: ({ row }) => (
+          <button className={THEME.buttons.primary} onClick={() => setSelected(row.original)}>
+            View
+          </button>
+        ),
+      })
+    );
 
-    columnHelper.accessor("village_name", { header: "Village" }),
-    columnHelper.accessor("block_name", { header: "Block" }),
-    columnHelper.accessor("district_name", { header: "District" }),
+    return generated;
+  }, []);
 
-    columnHelper.display({
-      id: "crop_count",
-      header: "Crops",
-      cell: ({ row }) => parseCropRegs(row.original.crop_registrations).length,
-    }),
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => {
+    const v: VisibilityState = {};
+    schemaFields.forEach(f => (v[f] = false));
 
-    columnHelper.display({
-      id: "actions",
-      header: "Actions",
-      cell: ({ row }) => (
-        <button className={THEME.buttons.primary} onClick={() => setSelected(row.original)}>
-          View
-        </button>
-      ),
-    }),
-  ];
+    v["farmer_id"] = true;
+    v["farmer_name"] = true;
+    v["farmer_category"] = true;
+    v["village_name"] = true;
+    v["block_name"] = true;
+    v["district_name"] = true;
 
-  // Default hide codes
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
-    farmer_id: false,
-    farmer_category: false,
-    block_code: false,
-    district_code: false,
-    village_code: false,
+    return v;
   });
 
-  // ------------------------------------------------------
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("/api/farmers/");
+        const token = localStorage.getItem("authToken");
+        const res = await fetch("/api/farmer/dashboard/get_all_farmers", {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
         const json = await res.json();
         setData(Array.isArray(json) ? json : []);
       } catch {
@@ -158,7 +179,6 @@ export default function FarmerRecordsTable() {
     load();
   }, []);
 
-  // ------------------------------------------------------
   const uniqueDistricts = useMemo(
     () => [...new Set(data.map((d) => d.district_name).filter(Boolean))].sort(),
     [data]
@@ -194,7 +214,6 @@ export default function FarmerRecordsTable() {
     [data, districtFilter, blockFilter]
   );
 
-  // ------------------------------------------------------
   const finalData = useMemo(
     () =>
       data.filter((rec) => {
@@ -226,52 +245,70 @@ export default function FarmerRecordsTable() {
     getPaginationRowModel: getPaginationRowModel(),
   });
 
-  // ------------------------------------------------------
-  // Export
-  // ------------------------------------------------------
   function exportCSV() {
-    const rows = table.getFilteredRowModel().rows;
-    if (!rows.length) return;
+    setShowExportModal(true);
+  }
 
-    const visibleCols = table
-      .getAllLeafColumns()
-      .filter((c) => c.getIsVisible() && c.id !== "actions");
+  async function handleExport() {
+    setIsExporting(true);
+    try {
+      const token = localStorage.getItem("authToken");
+      const url = `/api/farmer/dashboard/get_export_data?season_id=${exportSeasonId}&season_year=${exportSeasonYear}`;
 
-    const headers = visibleCols.map((c) =>
-      typeof c.columnDef.header === "string" ? c.columnDef.header : c.id
-    );
+      const res = await fetch(url, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
 
-    const csvRows = rows.map((r) =>
-      visibleCols
-        .map((col) => {
-          let v = (r.original as any)[col.id];
+      if (!res.ok) throw new Error("Export failed");
 
-          // Mask for export
-          if (col.id === "farmer_mobile" || col.id === "surveyor_id") {
-            v = maskNumber(v);
-          }
+      const exportData = await res.json();
 
-          return v ? `"${String(v).replace(/"/g, '""')}"` : "";
+      if (!Array.isArray(exportData) || exportData.length === 0) {
+        alert("No data available for export");
+        return;
+      }
+
+      const headers = Object.keys(exportData[0]);
+
+      const rows = exportData.map(row =>
+        headers.map(h => {
+          const v = row[h];
+          if (v == null) return "";
+          const s = String(v);
+          if (s.includes(",") || s.includes('"')) return `"${s.replace(/"/g, '""')}"`;
+          return s;
         })
-        .join(",")
-    );
+      );
 
-    const csv = [headers.join(","), ...csvRows].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "farmers.csv";
-    a.click();
+      const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+      const BOM = "\uFEFF";
+      const blob = new Blob([BOM + csv], {
+        type: "text/csv;charset=utf-8;",
+      });
+
+      const url2 = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url2;
+      a.download = `farmers_${SEASONS.find(s => s.id === exportSeasonId)?.name}_${exportSeasonYear}.csv`;
+      a.click();
+      URL.revokeObjectURL(url2);
+
+      setShowExportModal(false);
+    } catch (error) {
+      alert("Failed to export data");
+    } finally {
+      setIsExporting(false);
+    }
   }
 
   if (loading) return <div className="p-6">Loading...</div>;
 
-  // ------------------------------------------------------
   return (
     <div className="w-full">
 
-      {/* TOP PANEL → EXPORT + COLUMNS */}
-      <div className="bg-white border rounded-lg p-4 shadow-sm mb-5">
+      <div className="bg-white border rounded-lg p-4 shadow-sm mb-6">
         <div className="flex justify-between mb-4">
           <button
             onClick={exportCSV}
@@ -280,86 +317,104 @@ export default function FarmerRecordsTable() {
             Export
           </button>
 
-          <details className="relative">
-            <summary className="px-4 py-2 rounded bg-gray-700 text-white cursor-pointer">
+          <div className="relative inline-block text-left">
+            <button
+              onClick={() => setShowColumnMenu(prev => !prev)}
+              className="px-4 py-2 rounded bg-gray-700 text-white hover:bg-gray-800"
+            >
               View Additional Data
-            </summary>
+            </button>
 
-            <div className="absolute right-0 mt-2 w-56 bg-white border rounded shadow z-50 p-3 max-h-60 overflow-auto">
-              {table.getAllLeafColumns().map((col) => (
-                <label key={col.id} className="flex items-center gap-2 text-sm mb-1">
-                  <input
-                    type="checkbox"
-                    checked={col.getIsVisible()}
-                    onChange={col.getToggleVisibilityHandler()}
-                  />
-                  {typeof col.columnDef.header === "string" ? col.columnDef.header : col.id}
-                </label>
-              ))}
-            </div>
-          </details>
+            {showColumnMenu && (
+              <div className="absolute right-0 mt-2 w-56 bg-white shadow-lg rounded-lg border border-gray-200 z-50 p-3 max-h-72 overflow-y-auto">
+                {schemaFields.map(col => (
+                  <label key={col} className="flex items-center gap-2 text-sm mb-2">
+                    <input
+                      type="checkbox"
+                      checked={columnVisibility[col] ?? true}
+                      onChange={e =>
+                        table.getColumn(col)?.toggleVisibility(e.target.checked)
+                      }
+                    />
+                    {col.replace(/_/g, " ")}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* FILTERS */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 
-          <input
-            placeholder="Search…"
-            className="border px-3 py-2 rounded w-full"
-            value={globalFilter}
-            onChange={(e) => setGlobalFilter(e.target.value)}
-          />
+          <div className="flex flex-col">
+            <label className="text-sm font-medium">Search</label>
+            <input
+              placeholder="Search…"
+              className="border rounded px-3 h-10"
+              value={globalFilter}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+            />
+          </div>
 
-          <select
-            value={districtFilter}
-            onChange={(e) => {
-              setDistrictFilter(e.target.value);
-              setBlockFilter("");
-              setVillageFilter("");
-            }}
-            className="border px-3 py-2 rounded"
-          >
-            <option value="">All Districts</option>
-            {uniqueDistricts.map((d) => (
-              <option key={d}>{d}</option>
-            ))}
-          </select>
+          <div className="flex flex-col">
+            <label className="text-sm font-medium">District</label>
+            <select
+              className="border rounded px-3 h-10"
+              value={districtFilter}
+              onChange={(e) => {
+                setDistrictFilter(e.target.value);
+                setBlockFilter("");
+                setVillageFilter("");
+              }}
+            >
+              <option value="">All Districts</option>
+              {uniqueDistricts.map((d) => (
+                <option key={d}>{d}</option>
+              ))}
+            </select>
+          </div>
 
-          <select
-            value={blockFilter}
-            disabled={!districtFilter}
-            onChange={(e) => {
-              setBlockFilter(e.target.value);
-              setVillageFilter("");
-            }}
-            className={`border px-3 py-2 rounded ${!districtFilter ? "bg-gray-200" : ""}`}
-          >
-            <option value="">All Blocks</option>
-            {uniqueBlocks.map((b) => (
-              <option key={b}>{b}</option>
-            ))}
-          </select>
+          <div className="flex flex-col">
+            <label className="text-sm font-medium">Block</label>
+            <select
+              className="border rounded px-3 h-10"
+              value={blockFilter}
+              disabled={!districtFilter}
+              onChange={(e) => {
+                setBlockFilter(e.target.value);
+                setVillageFilter("");
+              }}
+            >
+              <option value="">All Blocks</option>
+              {uniqueBlocks.map((b) => (
+                <option key={b}>{b}</option>
+              ))}
+            </select>
+          </div>
 
-          <select
-            value={villageFilter}
-            disabled={!blockFilter}
-            onChange={(e) => setVillageFilter(e.target.value)}
-            className={`border px-3 py-2 rounded ${!blockFilter ? "bg-gray-200" : ""}`}
-          >
-            <option value="">All Villages</option>
-            {uniqueVillages.map((v) => (
-              <option key={v}>{v}</option>
-            ))}
-          </select>
+          <div className="flex flex-col">
+            <label className="text-sm font-medium">Village</label>
+            <select
+              className="border rounded px-3 h-10"
+              value={villageFilter}
+              disabled={!blockFilter}
+              onChange={(e) => setVillageFilter(e.target.value)}
+            >
+              <option value="">All Villages</option>
+              {uniqueVillages.map((v) => (
+                <option key={v}>{v}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="mt-4 flex justify-end">
+          <span className="text-sm text-gray-600">
+            Showing {finalData.length} of {data.length} records
+          </span>
         </div>
       </div>
 
-      {/* COUNT */}
-      <div className="flex justify-end text-sm text-gray-700 mb-4">
-        Showing {table.getFilteredRowModel().rows.length} of {data.length} records
-      </div>
-
-      {/* TABLE */}
       <div className={THEME.table.wrapper}>
         <table className={THEME.table.table}>
           <thead className={THEME.table.thead}>
@@ -397,20 +452,21 @@ export default function FarmerRecordsTable() {
         </table>
       </div>
 
-      {/* PAGINATION */}
       <div className="flex items-center gap-3 mt-4">
         <button
-          className="border px-3 py-1 rounded disabled:opacity-50"
+          className="border px-3 py-2 rounded disabled:opacity-50"
           onClick={() => table.previousPage()}
           disabled={!table.getCanPreviousPage()}
         >
           Prev
         </button>
 
-        <span>Page {pagination.pageIndex + 1} / {table.getPageCount()}</span>
+        <span className="text-sm">
+          Page {pagination.pageIndex + 1} / {table.getPageCount()}
+        </span>
 
         <button
-          className="border px-3 py-1 rounded disabled:opacity-50"
+          className="border px-3 py-2 rounded disabled:opacity-50"
           onClick={() => table.nextPage()}
           disabled={!table.getCanNextPage()}
         >
@@ -418,9 +474,8 @@ export default function FarmerRecordsTable() {
         </button>
       </div>
 
-      {/* MODAL */}
       {selected && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white w-[620px] max-h-[90vh] rounded-lg shadow-xl p-5 overflow-y-auto">
 
             <div className="flex justify-between items-center mb-4">
@@ -433,90 +488,101 @@ export default function FarmerRecordsTable() {
             <div className="space-y-4">
 
               <section>
-                <h3 className="text-sm font-semibold mb-2">Primary</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <div className="text-xs text-gray-500 uppercase">Farmer ID</div>
-                    <div className="text-sm">{safeVal(selected, "farmer_id")}</div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs text-gray-500 uppercase">Name</div>
-                    <div className="text-sm">{safeVal(selected, "farmer_name")}</div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs text-gray-500 uppercase">Mobile</div>
-                    <div className="text-sm">{maskNumber(selected?.farmer_mobile)}</div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs text-gray-500 uppercase">Surveyor ID</div>
-                    <div className="text-sm">{maskNumber(selected?.surveyor_id)}</div>
-                  </div>
+                <h3 className="text-sm font-semibold mb-2">Primary Information</h3>
+                <div className="space-y-3">
+                  <Field name="Farmer ID" value={safeVal(selected, "farmer_id")} />
+                  <Field name="Farmer Name" value={maskName(selected.farmer_name)} />
+                  <Field name="Farmer Mobile" value={maskNumber(selected?.farmer_mobile)} />
+                  <Field name="Farmer Category" value={safeVal(selected, "farmer_category")} />
                 </div>
               </section>
 
               <section>
-                <h3 className="text-sm font-semibold mb-2">Location</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <div className="text-xs text-gray-500 uppercase">Village</div>
-                    <div className="text-sm">{safeVal(selected, "village_name")}</div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs text-gray-500 uppercase">Block</div>
-                    <div className="text-sm">{safeVal(selected, "block_name")}</div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs text-gray-500 uppercase">District</div>
-                    <div className="text-sm">{safeVal(selected, "district_name")}</div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs text-gray-500 uppercase">Category</div>
-                    <div className="text-sm">{safeVal(selected, "farmer_category")}</div>
-                  </div>
+                <h3 className="text-sm font-semibold mb-2">Location Details</h3>
+                <div className="space-y-3">
+                  <Field name="Village Name" value={safeVal(selected, "village_name")} />
+                  <Field name="Village Code" value={safeVal(selected, "village_code")} />
+                  <Field name="Block Name" value={safeVal(selected, "block_name")} />
+                  <Field name="Block Code" value={safeVal(selected, "block_code")} />
+                  <Field name="District Name" value={safeVal(selected, "district_name")} />
+                  <Field name="District Code" value={safeVal(selected, "district_code")} />
                 </div>
               </section>
 
               <section>
-                <h3 className="text-sm font-semibold mb-2">Crop Registrations</h3>
-
-                {parseCropRegs(selected?.crop_registrations).length === 0 ? (
-                  <div className="text-sm text-gray-500">No crop registrations</div>
-                ) : (
-                  <div className="overflow-auto border rounded">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-100">
-                        <tr>
-                          <th className="p-2 border">Crop ID</th>
-                          <th className="p-2 border">Plot Area</th>
-                          <th className="p-2 border">Season</th>
-                          <th className="p-2 border">Year</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {parseCropRegs(selected?.crop_registrations).map((c, idx) => (
-                          <tr key={idx} className={idx % 2 ? "bg-gray-50" : "bg-white"}>
-                            <td className="p-2 border">{c.crop_id || "—"}</td>
-                            <td className="p-2 border">{c.plot_area || "—"}</td>
-                            <td className="p-2 border">{c.season || "—"}</td>
-                            <td className="p-2 border">{c.year || "—"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                <h3 className="text-sm font-semibold mb-2">Surveyor Information</h3>
+                <div className="space-y-3">
+                  <Field name="Surveyor Phone" value={maskNumber(selected?.surveyor_phone)} />
+                </div>
               </section>
 
             </div>
           </div>
         </div>
       )}
+
+      {showExportModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white w-[450px] rounded-lg shadow-xl p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold">Export Data</h2>
+              <button
+                className="text-gray-500 hover:text-black"
+                onClick={() => setShowExportModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex flex-col">
+                <label className="text-sm font-medium mb-1">Season</label>
+                <select
+                  className="border rounded px-3 h-10"
+                  value={exportSeasonId}
+                  onChange={e => setExportSeasonId(Number(e.target.value))}
+                >
+                  {SEASONS.map(season => (
+                    <option key={season.id} value={season.id}>
+                      {season.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-col">
+                <label className="text-sm font-medium mb-1">Season Year</label>
+                <input
+                  type="number"
+                  className="border rounded px-3 h-10"
+                  value={exportSeasonYear}
+                  onChange={e => setExportSeasonYear(Number(e.target.value))}
+                  min="2000"
+                  max="2100"
+                />
+              </div>
+
+              <div className="flex gap-3 justify-end mt-6">
+                <button
+                  onClick={() => setShowExportModal(false)}
+                  disabled={isExporting}
+                  className="px-4 py-2 border rounded hover:bg-gray-100 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleExport}
+                  disabled={isExporting}
+                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                >
+                  {isExporting ? "Exporting..." : "Export"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
