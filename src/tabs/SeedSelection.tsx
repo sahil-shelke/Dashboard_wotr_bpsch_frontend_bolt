@@ -26,6 +26,7 @@ export type SeedSelectionRecord = {
   farmer_name: string;
   farmer_mobile: string;
   crop_name: string;
+  crop_id: number;
   plot_area: number | null;
   season: string | null;
   season_year: string | null;
@@ -74,6 +75,7 @@ export type SeedSelectionRecord = {
 const schemaFields: (keyof SeedSelectionRecord)[] = [
   "farmer_name",
   "crop_name",
+  "crop_id",
   "plot_area",
   "season",
   "season_year",
@@ -135,19 +137,34 @@ function maskName(value: string) {
 }
 
 function getStatus(record: SeedSelectionRecord) {
-  const fields = [record.variety_name];
+  const hasValue = (v: any) => v !== null && v !== undefined && String(v).trim() !== "";
 
-  if (record.crop_name === "Pomegranate") {
-    fields.push(record.bahar);
-    fields.push(record.plantation_date);
-  } else {
-    fields.push(record.sowing_date);
-    fields.push(record.seed_rate_kg_per_plot ? String(record.seed_rate_kg_per_plot) : null);
+  const transplantCrops = [4, 10, 11, 25];
+
+  if (transplantCrops.includes(record.crop_id)) {
+    const hasTransplantingDate = hasValue(record.transplanting_date);
+    const hasVarietyName = hasValue(record.variety_name);
+
+    if (hasTransplantingDate && hasVarietyName) return "completed";
+    return "ongoing";
   }
 
-  const filledCount = fields.filter(v => v && String(v).trim() !== "").length;
-  if (filledCount === 0) return "ongoing";
-  if (filledCount >= fields.length) return "completed";
+  if (record.crop_id === 28) {
+    const hasBahar = hasValue(record.bahar);
+    const hasVarietyName = hasValue(record.variety_name);
+    const hasAgeOfOrchid = hasValue(record.age_of_orchid);
+    const hasDateOfPruning = hasValue(record.date_of_pruning);
+
+    if (hasBahar && hasVarietyName && hasAgeOfOrchid && hasDateOfPruning) return "completed";
+    return "ongoing";
+  }
+
+  const hasSowingDate = hasValue(record.sowing_date);
+  const hasVarietyName = hasValue(record.variety_name);
+  const hasSeedRate = hasValue(record.seed_rate_kg_per_plot);
+  const hasSowingMethod = hasValue(record.sowing_method);
+
+  if (hasSowingDate && hasVarietyName && hasSeedRate && hasSowingMethod) return "completed";
   return "ongoing";
 }
 
