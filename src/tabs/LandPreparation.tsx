@@ -13,48 +13,62 @@ import {
 import { useState, useEffect, useMemo } from "react";
 import { THEME } from "../utils/theme";
 
+const SEASONS = [
+  { id: 1, name: "Kharif" },
+  { id: 2, name: "Rabi" },
+  { id: 3, name: "Summer" },
+  { id: 4, name: "Annual" },
+];
+
 export type LandPreparationRecord = {
+  crop_registration_id: string;
+  plot_area: number;
+  season: string;
+  season_year: number;
   farmer_name: string;
   farmer_mobile: string;
-  crop_name_en: string;
+  crop_name: string;
   surveyor_name: string;
-  surveyor_id: string;
+  surveyor_id: number;
   village_name: string;
   block_name: string;
   district_name: string;
-  plot_area: string;
-  fym_date: string;
-  fym_quantity: string;
-  ploughing_date: string;
-  harrow_date: string;
+  land_prep_id: number;
+  fym_date: string | null;
+  fym_quantity: number | null;
+  ploughing_date: string | null;
+  harrow_date: string | null;
+  created_at?: string;
+  updated_at?: string;
 };
 
 const schemaFields: (keyof LandPreparationRecord)[] = [
   "farmer_name",
+  "crop_name",
+  "plot_area",
+  "season",
+  "season_year",
+  "district_name",
+  "block_name",
+  "village_name",
+  "crop_registration_id",
   "farmer_mobile",
-  "crop_name_en",
   "surveyor_name",
   "surveyor_id",
-  "village_name",
-  "block_name",
-  "district_name",
-  "plot_area",
+  "land_prep_id",
   "fym_date",
   "fym_quantity",
   "ploughing_date",
   "harrow_date",
 ];
 
-// -----------------------------
-// MASK FUNCTIONS
-// -----------------------------
-function mask(value: string) {
+function mask(value: any) {
   if (!value) return "—";
   const s = String(value);
-  return "X".repeat(Math.max(0, s.length - 4)) + s.slice(-4);
+  if (s.length <= 4) return "XXXX";
+  return "X".repeat(s.length - 4) + s.slice(-4);
 }
 
-// MASK ENTIRE FIRST NAME
 function maskName(value: string) {
   if (!value) return "—";
   const parts = value.split(" ");
@@ -63,79 +77,105 @@ function maskName(value: string) {
   return parts.join(" ");
 }
 
-// -----------------------------
-// STATUS
-// -----------------------------
 function getStatus(record: LandPreparationRecord) {
-  const fields = [
-    record.ploughing_date,
-    record.harrow_date,
-  ];
-
+  const fields = [record.ploughing_date, record.harrow_date];
   const filledCount = fields.filter(v => v && v.trim() !== "").length;
 
-  if (filledCount === 0) return "On-going";
-  if (filledCount >= fields.length) return "Completed";
+  if (filledCount === 0) return "ongoing";
+  if (filledCount >= fields.length) return "completed";
+  return "ongoing";
+}
+
+function Field({ name, value }: any) {
+  return (
+    <div className="border-b pb-2">
+      <div className="text-xs uppercase text-gray-500">
+        {name.replace(/_/g, " ")}
+      </div>
+      <div className="text-sm">{value || "—"}</div>
+    </div>
+  );
 }
 
 export default function LandPreparationTable() {
   const [data, setData] = useState<LandPreparationRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedRecord, setSelectedRecord] = useState<LandPreparationRecord | null>(null);
+  const [selected, setSelected] = useState<LandPreparationRecord | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const [completionFilter, setCompletionFilter] = useState<"all" | "Completed" | "On-going">("Completed");
+  const [editForm, setEditForm] = useState({
+    fym_date: "",
+    fym_quantity: 0,
+    ploughing_date: "",
+    harrow_date: "",
+  });
+
+  const [completionFilter, setCompletionFilter] = useState<"all" | "completed" | "ongoing">("completed");
   const [districtFilter, setDistrictFilter] = useState("");
   const [blockFilter, setBlockFilter] = useState("");
   const [villageFilter, setVillageFilter] = useState("");
   const [showColumnMenu, setShowColumnMenu] = useState(false);
 
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportSeasonId, setExportSeasonId] = useState(1);
+  const [exportSeasonYear, setExportSeasonYear] = useState(new Date().getFullYear());
+  const [isExporting, setIsExporting] = useState(false);
+
   const columnHelper = createColumnHelper<LandPreparationRecord>();
 
-  const columns = [
-    columnHelper.accessor("farmer_name", {
-      header: "Farmer Name",
-      cell: ({ row }) => maskName(row.original.farmer_name),
-    }),
+  const columns = useMemo(() => {
+    const generated = schemaFields.map(field => {
+      if (field === "farmer_name") {
+        return columnHelper.accessor(field, {
+          header: field.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()),
+          cell: info => maskName(info.getValue()),
+        });
+      }
 
-    columnHelper.accessor("farmer_mobile", {
-      header: "Farmer Mobile",
-      cell: ({ row }) => mask(row.original.farmer_mobile),
-    }),
+      if (field === "farmer_mobile" || field === "surveyor_id") {
+        return columnHelper.accessor(field, {
+          header: field.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()),
+          cell: info => mask(info.getValue()),
+        });
+      }
 
-    columnHelper.accessor("crop_name_en", { header: "Crop Name" }),
-    columnHelper.accessor("surveyor_name", { header: "Surveyor Name" }),
+      return columnHelper.accessor(field, {
+        header: field.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()),
+        cell: info => {
+          const v = info.getValue();
+          if (v === null || v === undefined) return "—";
+          return String(v);
+        },
+      });
+    });
 
-    columnHelper.accessor("surveyor_id", {
-      header: "Surveyor ID",
-      cell: ({ row }) => mask(row.original.surveyor_id),
-    }),
+    generated.push(
+      columnHelper.display({
+        id: "actions",
+        header: "Actions",
+        cell: ({ row }) => (
+          <button className={THEME.buttons.primary} onClick={() => setSelected(row.original)}>
+            View
+          </button>
+        ),
+      })
+    );
 
-    columnHelper.accessor("village_name", { header: "Village" }),
-    columnHelper.accessor("block_name", { header: "Block" }),
-    columnHelper.accessor("district_name", { header: "District" }),
-    columnHelper.accessor("plot_area", { header: "Plot Area" }),
-    columnHelper.accessor("fym_date", { header: "FYM Date" }),
-    columnHelper.accessor("fym_quantity", { header: "FYM Quantity" }),
-    columnHelper.accessor("ploughing_date", { header: "Ploughing Date" }),
-    columnHelper.accessor("harrow_date", { header: "Harrow Date" }),
-
-    columnHelper.display({
-      id: "actions",
-      header: "Actions",
-      cell: ({ row }) => (
-        <button className={THEME.buttons.primary} onClick={() => setSelectedRecord(row.original)}>
-          View
-        </button>
-      ),
-    }),
-  ];
+    return generated;
+  }, []);
 
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("/api/farm-management/land_preparations");
+        const token = localStorage.getItem("authToken");
+        const res = await fetch("/api/land_preparation/dashboard/get_all_records", {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
         const json = await res.json();
-        setData(json);
+        setData(Array.isArray(json) ? json : []);
       } finally {
         setLoading(false);
       }
@@ -148,35 +188,49 @@ export default function LandPreparationTable() {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 12 });
 
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
-    farmer_name: true,
-    farmer_mobile: false,
-    crop_name_en: true,
-    surveyor_name: false,
-    surveyor_id: false,
-    village_name: true,
-    block_name: true,
-    district_name: true,
-    plot_area: true,
-    fym_date: false,
-    fym_quantity: false,
-    ploughing_date: true,
-    harrow_date: true,
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => {
+    const v: VisibilityState = {};
+    schemaFields.forEach(f => (v[f] = false));
+
+    v["farmer_name"] = true;
+    v["crop_name"] = true;
+    v["plot_area"] = true;
+    v["season"] = true;
+    v["season_year"] = true;
+    v["district_name"] = true;
+    v["block_name"] = true;
+    v["village_name"] = true;
+
+    return v;
   });
 
-  const uniqueDistricts = [...new Set(data.map(r => r.district_name))].filter(Boolean).sort();
+  const uniqueDistricts = useMemo(
+    () => [...new Set(data.map(r => r.district_name).filter(Boolean))].sort(),
+    [data]
+  );
 
-  const uniqueBlocks = [...new Set(
-    data.filter(r => !districtFilter || r.district_name === districtFilter)
-      .map(r => r.block_name)
-  )].filter(Boolean).sort();
+  const uniqueBlocks = useMemo(
+    () =>
+      [...new Set(
+        data
+          .filter(r => !districtFilter || r.district_name === districtFilter)
+          .map(r => r.block_name)
+          .filter(Boolean)
+      )].sort(),
+    [data, districtFilter]
+  );
 
-  const uniqueVillages = [...new Set(
-    data
-      .filter(r => !districtFilter || r.district_name === districtFilter)
-      .filter(r => !blockFilter || r.block_name === blockFilter)
-      .map(r => r.village_name)
-  )].filter(Boolean).sort();
+  const uniqueVillages = useMemo(
+    () =>
+      [...new Set(
+        data
+          .filter(r => !districtFilter || r.district_name === districtFilter)
+          .filter(r => !blockFilter || r.block_name === blockFilter)
+          .map(r => r.village_name)
+          .filter(Boolean)
+      )].sort(),
+    [data, districtFilter, blockFilter]
+  );
 
   const finalData = useMemo(() => {
     const g = globalFilter.trim().toLowerCase();
@@ -204,42 +258,113 @@ export default function LandPreparationTable() {
     getPaginationRowModel: getPaginationRowModel(),
   });
 
-  // -----------------------------
-  // CSV EXPORT WITH MASKING
-  // -----------------------------
   function exportCSV() {
-    if (!finalData.length) return;
+    setShowExportModal(true);
+  }
 
-    const headers = schemaFields;
+  async function handleExport() {
+    setIsExporting(true);
+    try {
+      const token = localStorage.getItem("authToken");
+      const url = `/api/land_preparation/dashboard/get_export_data?season_id=${exportSeasonId}&season_year=${exportSeasonYear}`;
 
-    const rows = finalData.map(row =>
-      headers.map(h => {
-        let v = row[h];
-        
-        if (h === "farmer_mobile") v = mask(v);
-        if (h === "surveyor_id") v = mask(v);
-        if (h === "farmer_name") v = maskName(v);
+      const res = await fetch(url, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
 
-        if (v == null) return "";
-        const s = String(v);
-        if (s.includes(",") || s.includes('"')) return `"${s.replace(/"/g, '""')}"`;
-        return s;
-      })
-    );
+      if (!res.ok) throw new Error("Export failed");
 
-    const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+      const exportData = await res.json();
 
-    const BOM = "\uFEFF";
-    const blob = new Blob([BOM + csv], {
-      type: "text/csv;charset=utf-8;",
-    });
+      if (!Array.isArray(exportData) || exportData.length === 0) {
+        alert("No data available for export");
+        return;
+      }
 
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "land_preparation.csv";
-    a.click();
-    URL.revokeObjectURL(url);
+      const headers = Object.keys(exportData[0]);
+
+      const rows = exportData.map(row =>
+        headers.map(h => {
+          const v = row[h];
+          if (v == null) return "";
+          const s = String(v);
+          if (s.includes(",") || s.includes('"')) return `"${s.replace(/"/g, '""')}"`;
+          return s;
+        })
+      );
+
+      const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+      const BOM = "\uFEFF";
+      const blob = new Blob([BOM + csv], {
+        type: "text/csv;charset=utf-8;",
+      });
+
+      const url2 = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url2;
+      a.download = `land_preparation_${SEASONS.find(s => s.id === exportSeasonId)?.name}_${exportSeasonYear}.csv`;
+      a.click();
+      URL.revokeObjectURL(url2);
+
+      setShowExportModal(false);
+    } catch (error) {
+      alert("Failed to export data");
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
+  async function saveRecord() {
+    if (!selected) return;
+
+    setIsSaving(true);
+    try {
+      const token = localStorage.getItem("authToken");
+      const response = await fetch(
+        `/api/land_preparation/dashboard/update/${selected.crop_registration_id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            fym_date: editForm.fym_date || null,
+            fym_quantity: editForm.fym_quantity,
+            ploughing_date: editForm.ploughing_date || null,
+            harrow_date: editForm.harrow_date || null,
+          }),
+        }
+      );
+
+      if (!response.ok) throw new Error("Failed to update");
+
+      const updatedRecord = {
+        ...selected,
+        fym_date: editForm.fym_date || null,
+        fym_quantity: editForm.fym_quantity,
+        ploughing_date: editForm.ploughing_date || null,
+        harrow_date: editForm.harrow_date || null,
+      };
+
+      setSelected(updatedRecord);
+      setData(prev =>
+        prev.map(item =>
+          item.crop_registration_id === selected.crop_registration_id
+            ? updatedRecord
+            : item
+        )
+      );
+
+      setIsEditing(false);
+      alert("Successfully updated land preparation record");
+    } catch (error) {
+      alert("Failed to update land preparation record");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   if (loading) return <div className="p-6">Loading...</div>;
@@ -247,11 +372,13 @@ export default function LandPreparationTable() {
   return (
     <div className="w-full">
 
-      {/* FILTER PANEL */}
       <div className="bg-white border rounded-lg p-4 shadow-sm mb-6 w-full">
 
         <div className="flex justify-between mb-4">
-          <button onClick={exportCSV} className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700">
+          <button
+            onClick={exportCSV}
+            className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700"
+          >
             Export
           </button>
 
@@ -270,11 +397,14 @@ export default function LandPreparationTable() {
                     <input
                       type="checkbox"
                       checked={columnVisibility[col] ?? true}
+                      disabled={col === "plot_area"}
                       onChange={e =>
                         table.getColumn(col)?.toggleVisibility(e.target.checked)
                       }
+                      className={col === "plot_area" ? "cursor-not-allowed opacity-50" : ""}
                     />
                     {col.replace(/_/g, " ")}
+                    {col === "plot_area" && <span className="text-xs text-gray-500">(always visible)</span>}
                   </label>
                 ))}
               </div>
@@ -282,7 +412,6 @@ export default function LandPreparationTable() {
           </div>
         </div>
 
-        {/* Search & Filters */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="flex flex-col">
             <label className="text-sm font-medium">Search</label>
@@ -306,7 +435,9 @@ export default function LandPreparationTable() {
               }}
             >
               <option value="">All Districts</option>
-              {uniqueDistricts.map(d => <option key={d}>{d}</option>)}
+              {uniqueDistricts.map(d => (
+                <option key={d}>{d}</option>
+              ))}
             </select>
           </div>
 
@@ -322,7 +453,9 @@ export default function LandPreparationTable() {
               }}
             >
               <option value="">All Blocks</option>
-              {uniqueBlocks.map(b => <option key={b}>{b}</option>)}
+              {uniqueBlocks.map(b => (
+                <option key={b}>{b}</option>
+              ))}
             </select>
           </div>
 
@@ -335,12 +468,13 @@ export default function LandPreparationTable() {
               onChange={e => setVillageFilter(e.target.value)}
             >
               <option value="">All Villages</option>
-              {uniqueVillages.map(v => <option key={v}>{v}</option>)}
+              {uniqueVillages.map(v => (
+                <option key={v}>{v}</option>
+              ))}
             </select>
           </div>
         </div>
 
-        {/* Status + Counter */}
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <select
             className="border rounded px-3 h-10"
@@ -348,8 +482,8 @@ export default function LandPreparationTable() {
             onChange={e => setCompletionFilter(e.target.value as any)}
           >
             <option value="all">All Records</option>
-            <option value="Completed">Completed</option>
-            <option value="On-going">On-going</option>
+            <option value="completed">Completed</option>
+            <option value="ongoing">On-going</option>
           </select>
 
           <span className="ml-auto text-sm text-gray-600">
@@ -358,7 +492,6 @@ export default function LandPreparationTable() {
         </div>
       </div>
 
-      {/* TABLE */}
       <div className={THEME.table.wrapper}>
         <table className={THEME.table.table}>
           <thead className={THEME.table.thead}>
@@ -381,7 +514,10 @@ export default function LandPreparationTable() {
 
           <tbody>
             {table.getRowModel().rows.map((row, i) => (
-              <tr key={row.id} className={`${i % 2 === 0 ? THEME.table.rowEven : THEME.table.rowOdd}`}>
+              <tr
+                key={row.id}
+                className={`${i % 2 === 0 ? THEME.table.rowEven : THEME.table.rowOdd} ${THEME.table.rowHover}`}
+              >
                 {row.getVisibleCells().map(cell => (
                   <td key={cell.id} className={THEME.table.cell}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -393,7 +529,6 @@ export default function LandPreparationTable() {
         </table>
       </div>
 
-      {/* PAGINATION */}
       <div className="flex gap-4 items-center mt-4">
         <button
           className="border px-3 py-2 rounded disabled:opacity-50"
@@ -403,7 +538,9 @@ export default function LandPreparationTable() {
           Prev
         </button>
 
-        <span className="text-sm">Page {pagination.pageIndex + 1} / {table.getPageCount()}</span>
+        <span className="text-sm">
+          Page {pagination.pageIndex + 1} / {table.getPageCount()}
+        </span>
 
         <button
           className="border px-3 py-2 rounded disabled:opacity-50"
@@ -414,32 +551,202 @@ export default function LandPreparationTable() {
         </button>
       </div>
 
-      {/* MODAL */}
-      {selectedRecord && (
+      {selected && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white w-[450px] max-h-[80vh] rounded-xl shadow-xl p-6 overflow-y-auto">
+          <div className="bg-white w-[600px] max-h-[90vh] rounded-lg shadow-xl p-5 overflow-y-auto">
+
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold">Land Preparation Details</h2>
-              <button className="text-2xl" onClick={() => setSelectedRecord(null)}>×</button>
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-semibold">Land Preparation Details</h2>
+                <span
+                  className={`text-xs px-2 py-1 rounded ${
+                    getStatus(selected) === "completed"
+                      ? "bg-green-100 text-green-700"
+                      : "bg-yellow-100 text-yellow-700"
+                  }`}
+                >
+                  {getStatus(selected) === "completed" ? "Completed" : "On-going"}
+                </span>
+              </div>
+
+              <button
+                className="text-gray-500 hover:text-black"
+                onClick={() => {
+                  setSelected(null);
+                  setIsEditing(false);
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4 mb-4">
+              <Field name="Farmer Name" value={maskName(selected.farmer_name)} />
+              <Field name="Farmer Mobile" value={mask(selected.farmer_mobile)} />
+              <Field name="Crop Name" value={selected.crop_name} />
+              <Field name="Plot Area" value={selected.plot_area} />
+              <Field name="Season" value={selected.season} />
+              <Field name="Season Year" value={selected.season_year} />
+              <Field name="Surveyor Name" value={selected.surveyor_name} />
+              <Field name="Surveyor ID" value={mask(selected.surveyor_id)} />
+              <Field name="Village" value={selected.village_name} />
+              <Field name="Block" value={selected.block_name} />
+              <Field name="District" value={selected.district_name} />
+            </div>
+
+            <div className="mt-6 border-t pt-4">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-md font-semibold">Land Preparation Details</h3>
+                {!isEditing ? (
+                  <button
+                    onClick={() => {
+                      setEditForm({
+                        fym_date: selected.fym_date || "",
+                        fym_quantity: selected.fym_quantity || 0,
+                        ploughing_date: selected.ploughing_date || "",
+                        harrow_date: selected.harrow_date || "",
+                      });
+                      setIsEditing(true);
+                    }}
+                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                  >
+                    Edit Record
+                  </button>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={saveRecord}
+                      disabled={isSaving}
+                      className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                    >
+                      {isSaving ? "Saving..." : "Save"}
+                    </button>
+                    <button
+                      onClick={() => setIsEditing(false)}
+                      disabled={isSaving}
+                      className="px-3 py-1 text-sm bg-gray-600 text-white rounded hover:bg-gray-700 disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {isEditing ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium">FYM Date</label>
+                    <input
+                      type="date"
+                      value={editForm.fym_date}
+                      onChange={e => setEditForm({ ...editForm, fym_date: e.target.value })}
+                      className="w-full px-3 py-2 border rounded mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium">FYM Quantity</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={editForm.fym_quantity}
+                      onChange={e => setEditForm({ ...editForm, fym_quantity: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border rounded mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium">Ploughing Date</label>
+                    <input
+                      type="date"
+                      value={editForm.ploughing_date}
+                      onChange={e => setEditForm({ ...editForm, ploughing_date: e.target.value })}
+                      className="w-full px-3 py-2 border rounded mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium">Harrow Date</label>
+                    <input
+                      type="date"
+                      value={editForm.harrow_date}
+                      onChange={e => setEditForm({ ...editForm, harrow_date: e.target.value })}
+                      className="w-full px-3 py-2 border rounded mt-1"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <Field name="FYM Date" value={selected.fym_date} />
+                  <Field name="FYM Quantity" value={selected.fym_quantity} />
+                  <Field name="Ploughing Date" value={selected.ploughing_date} />
+                  <Field name="Harrow Date" value={selected.harrow_date} />
+                </div>
+              )}
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {showExportModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white w-[450px] rounded-lg shadow-xl p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold">Export Data</h2>
+              <button
+                className="text-gray-500 hover:text-black"
+                onClick={() => setShowExportModal(false)}
+              >
+                ✕
+              </button>
             </div>
 
             <div className="space-y-4">
-              {schemaFields.map(key => {
-                let value: any = selectedRecord[key];
+              <div className="flex flex-col">
+                <label className="text-sm font-medium mb-1">Season</label>
+                <select
+                  className="border rounded px-3 h-10"
+                  value={exportSeasonId}
+                  onChange={e => setExportSeasonId(Number(e.target.value))}
+                >
+                  {SEASONS.map(season => (
+                    <option key={season.id} value={season.id}>
+                      {season.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-                if (key === "farmer_name") value = maskName(value);
-                if (key === "farmer_mobile") value = mask(value);
-                if (key === "surveyor_id") value = mask(value);
+              <div className="flex flex-col">
+                <label className="text-sm font-medium mb-1">Season Year</label>
+                <input
+                  type="number"
+                  className="border rounded px-3 h-10"
+                  value={exportSeasonYear}
+                  onChange={e => setExportSeasonYear(Number(e.target.value))}
+                  min="2000"
+                  max="2100"
+                />
+              </div>
 
-                return (
-                  <div key={key} className="border-b pb-2">
-                    <div className="text-xs uppercase text-gray-600">{key.replace(/_/g, " ")}</div>
-                    <div className="text-sm">{value || "—"}</div>
-                  </div>
-                );
-              })}
+              <div className="flex gap-3 justify-end mt-6">
+                <button
+                  onClick={() => setShowExportModal(false)}
+                  disabled={isExporting}
+                  className="px-4 py-2 border rounded hover:bg-gray-100 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleExport}
+                  disabled={isExporting}
+                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                >
+                  {isExporting ? "Exporting..." : "Export"}
+                </button>
+              </div>
             </div>
-
           </div>
         </div>
       )}

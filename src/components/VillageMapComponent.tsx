@@ -20,6 +20,13 @@ interface VillageMapComponentProps {
   villageCode: string | null;
 }
 
+const SEASONS = [
+  { id: 1, name: "Kharif" },
+  { id: 2, name: "Rabi" },
+  { id: 3, name: "Summer" },
+  { id: 4, name: "Annual" },
+];
+
 interface StationMetadata {
   station_id: number;
   station_name: string;
@@ -83,6 +90,8 @@ export default function VillageMapComponent({
   const [allStations, setAllStations] = useState<StationMetadata[]>([]);
   const [stationTemperatures, setStationTemperatures] = useState<Record<string, number>>({});
   const allStationMarkersRef = useRef<L.Marker[]>([]);
+  const [seasonId, setSeasonId] = useState<number>(1);
+  const [seasonYear, setSeasonYear] = useState<number>(new Date().getFullYear());
 
   // ---------------------------------------------------------------
   // MAP INITIALIZATION
@@ -152,7 +161,12 @@ export default function VillageMapComponent({
   useEffect(() => {
     const fetchAllStations = async () => {
       try {
-        const stationResponse = await fetch(`/api/villages/station_metadata`);
+        const token = localStorage.getItem("authToken");
+        const stationResponse = await fetch(`/api/location_dashboard/station_metadata`, {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
         if (stationResponse.ok) {
           const stations: StationMetadata[] = await stationResponse.json();
           setAllStations(stations);
@@ -163,7 +177,12 @@ export default function VillageMapComponent({
           const tempPromises = stations.map(async (station) => {
             try {
               const tempResponse = await fetch(
-                `/api/farm-management/davis-weather-v_code?start_date=${thirtyDaysAgo}&end_date=${today}&village_code=${encodeURIComponent(station.village_code)}`
+                `/api/location_dashboard/davis-weather-v_code?start_date=${thirtyDaysAgo}&end_date=${today}&village_code=${encodeURIComponent(station.village_code)}`,
+                {
+                  headers: {
+                    "Authorization": `Bearer ${token}`
+                  }
+                }
               );
               if (tempResponse.ok) {
                 const tempData = await tempResponse.json();
@@ -211,14 +230,110 @@ export default function VillageMapComponent({
       setError(null);
 
       try {
-        const [farmersResponse, stationResponse] = await Promise.all([
-          fetch(`/api/farmers/geojson/${villageCode}`),
-          fetch(`/api/villages/station_metadata`),
+        const token = localStorage.getItem("authToken");
+        const [mapResponse, stationResponse] = await Promise.all([
+          fetch(`/api/map/?season_id=${seasonId}&season_year=${seasonYear}&village_code=${villageCode}`, {
+            headers: {
+              "Authorization": `Bearer ${token}`
+            }
+          }),
+          fetch(`/api/location_dashboard/station_metadata`, {
+            headers: {
+              "Authorization": `Bearer ${token}`
+            }
+          }),
         ]);
 
-        if (!farmersResponse.ok) throw new Error("Failed to fetch farmer data");
-        const farmersData: FarmerCompleteData[] = await farmersResponse.json();
-        setFarmerData(farmersData);
+if (!mapResponse.ok) throw new Error("Failed to fetch map data");
+const mapData = await mapResponse.json();
+
+/**
+ * Normalize API response into array
+ */
+const records = Array.isArray(mapData) ? mapData : [mapData];
+
+const farmersData: FarmerCompleteData[] = [];
+
+const safeParse = (value: any) => {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+};
+
+
+records.forEach((raw: any) => {
+  const farmer = safeParse(raw.farmer);
+  const crop_registration = safeParse(raw.crop_registration);
+  const crop_master = safeParse(raw.crop_master);
+  const village = safeParse(raw.village);
+  const block = safeParse(raw.block);
+  const district = safeParse(raw.district);
+  const land_preparation = safeParse(raw.land_preparation);
+  const seed_selection = safeParse(raw.seed_selection);
+  const irrigation = safeParse(raw.irrigation);
+  const nutrient_management = safeParse(raw.nutrient_management) ?? [];
+  const weed_manual_control = safeParse(raw.weed_manual_control) ?? [];
+  const pest_traps = safeParse(raw.pest_traps) ?? [];
+  const pest_controls = safeParse(raw.pest_controls) ?? [];
+  const harvesting_management = safeParse(raw.harvesting_management);
+
+  const farmBoundaries = safeParse(raw.farm_boundary) ?? [];
+
+  farmBoundaries.forEach((fb: any) => {
+    const feature = fb?.boundary;
+
+    if (
+      !feature ||
+      feature.type !== "Feature" ||
+      !feature.geometry ||
+      !feature.geometry.coordinates
+    ) {
+      return;
+    }
+
+    farmersData.push({
+      farmer: {
+        geometry: {
+          type: "Feature",
+          geometry: feature.geometry,
+          properties: feature.properties ?? null,
+        },
+        farmer_id: farmer?.farmer_id?.toString() ?? "",
+        block_code: farmer?.block_code ?? "",
+        farmer_name: farmer?.farmer_name ?? "",
+        surveyor_id: farmer?.surveyor_phone ?? "",
+        village_code: farmer?.village_code ?? "",
+        district_code: farmer?.district_code ?? "",
+        farmer_mobile: farmer?.farmer_mobile ?? "",
+        farmer_category: farmer?.farmer_category ?? "",
+      },
+
+      crop_registration,
+      land_preparation,
+      seed_selection,
+      nutrient_management,
+      weed_management: weed_manual_control,
+
+      pest_management: {
+        pest_traps,
+        pest_controls,
+      },
+
+      irrigation,
+      harvesting_management,
+      crop_master,
+      village,
+      block,
+      district,
+    });
+  });
+});
+
+setFarmerData(farmersData);
+
 
         if (stationResponse.ok) {
           const allStations: StationMetadata[] = await stationResponse.json();
@@ -230,7 +345,12 @@ export default function VillageMapComponent({
             const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
             const tempResponse = await fetch(
-              `/api/farm-management/davis-weather-v_code?start_date=${thirtyDaysAgo}&end_date=${today}&village_code=${encodeURIComponent(station.village_code)}`
+              `/api/location_dashboard/davis-weather-v_code?start_date=${thirtyDaysAgo}&end_date=${today}&village_code=${encodeURIComponent(station.village_code)}`,
+              {
+                headers: {
+                  "Authorization": `Bearer ${token}`
+                }
+              }
             );
 
             if (tempResponse.ok) {
@@ -256,101 +376,124 @@ export default function VillageMapComponent({
     };
 
     fetchData();
-  }, [villageCode]);
+  }, [villageCode, seasonId, seasonYear]);
+
+  const maskName = (name: string) => {
+  if (!name) return "Unknown";
+  return name.charAt(0) + "****";
+};
+
+const maskPhone = (phone: string) => {
+  if (!phone || phone.length < 4) return "****";
+  return "******" + phone.slice(-4);
+};
+
 
   // ---------------------------------------------------------------
   // DRAW FARMERS ON MAP (SAFE WITH NULL GEOMETRY)
   // ---------------------------------------------------------------
-  useEffect(() => {
-    if (!mapRef.current) return;
+  // ---------------------------------------------------------------
+// DRAW FARMERS ON MAP (SAFE WITH NULL GEOMETRY)
+// ---------------------------------------------------------------
+useEffect(() => {
+  if (!mapRef.current) return;
 
-    // Remove previous layer
-    if (farmerLayerRef.current) {
-      mapRef.current.removeLayer(farmerLayerRef.current);
-      farmerLayerRef.current = null;
+  // Remove previous layer
+  if (farmerLayerRef.current) {
+    mapRef.current.removeLayer(farmerLayerRef.current);
+    farmerLayerRef.current = null;
+  }
+
+  // Filter only farmers that have valid geometry
+  const validFarmers = farmerData.filter(
+    (f) => f?.farmer?.geometry?.geometry
+  );
+
+  if (validFarmers.length === 0) return;
+
+  const features: GeoJSON.Feature[] = validFarmers.map((farmerRecord) => ({
+    type: "Feature",
+    geometry: farmerRecord.farmer.geometry!.geometry!,
+    properties: {
+      ...(farmerRecord.farmer.geometry?.properties ?? {}),
+      farmer_id: farmerRecord.farmer.farmer_id,
+      farmer_name: farmerRecord.farmer.farmer_name,
+      farmer_mobile: farmerRecord.farmer.farmer_mobile,
+    },
+  }));
+
+  const featureCollection: GeoJSON.FeatureCollection = {
+    type: "FeatureCollection",
+    features,
+  };
+
+  farmerLayerRef.current = L.geoJSON(featureCollection, {
+    style: () => ({
+      color: "#1d4ed8",       // blue-700 border
+      weight: 2.2,
+      opacity: 1,
+      fillColor: "#60a5fa",   // blue-400 fill
+      fillOpacity: 0.35,
+    }),
+
+    onEachFeature: (feature, layer) => {
+      const farmerName = feature.properties?.farmer_name || "";
+const farmerMobile = feature.properties?.farmer_mobile || "";
+
+const maskedName = maskName(farmerName);
+const maskedPhone = maskPhone(farmerMobile);
+
+layer.bindTooltip(
+  `
+  <div style="font-family: sans-serif;">
+    <strong>${maskedName}</strong><br/>
+    ${maskedPhone}
+  </div>
+  `,
+  {
+    permanent: false,
+    direction: "top",
+    className: "custom-tooltip",
+  }
+);
+
+      // Click → modal
+      layer.on("click", () => {
+        const farmer = validFarmers.find(
+          (f) => f.farmer.farmer_id === feature.properties?.farmer_id
+        );
+        if (farmer) {
+          setSelectedFarmer(farmer);
+          setIsModalOpen(true);
+        }
+      });
+
+      // Hover effects
+      layer.on("mouseover", function () {
+        this.setStyle({
+          weight: 3,
+          fillOpacity: 0.5,
+        });
+      });
+
+      layer.on("mouseout", function () {
+        this.setStyle({
+          weight: 2.2,
+          fillOpacity: 0.35,
+        });
+      });
+    },
+  }).addTo(mapRef.current);
+
+  // Fit bounds to village
+  if (villageCode) {
+    const bounds = farmerLayerRef.current.getBounds();
+    if (bounds.isValid()) {
+      mapRef.current.fitBounds(bounds, { padding: [50, 50] });
     }
+  }
+}, [farmerData, villageCode]);
 
-    // Filter only farmers that have valid geometry
-    const validFarmers = farmerData.filter(
-      (f) => f?.farmer?.geometry?.geometry
-    );
-
-    if (validFarmers.length === 0) return;
-
-    const features: GeoJSON.Feature[] = validFarmers.map((farmerRecord) => ({
-      type: "Feature",
-      geometry: farmerRecord.farmer.geometry!.geometry!,
-      properties: {
-        ...(farmerRecord.farmer.geometry?.properties ?? {}),
-        farmer_id: farmerRecord.farmer.farmer_id,
-        farmer_name: farmerRecord.farmer.farmer_name,
-        farmer_mobile: farmerRecord.farmer.farmer_mobile,
-      },
-    }));
-
-    const featureCollection: GeoJSON.FeatureCollection = {
-      type: "FeatureCollection",
-      features,
-    };
-
-    farmerLayerRef.current = L.geoJSON(featureCollection, {
-      style: () => ({
-        color: "#2563eb",
-        weight: 2,
-        opacity: 0.8,
-        fillColor: "#3b82f6",
-        fillOpacity: 0.3,
-      }),
-      onEachFeature: (feature, layer) => {
-        const farmerName = feature.properties?.farmer_name || "Unknown";
-        const farmerMobile = feature.properties?.farmer_mobile || "N/A";
-
-        const tooltipContent = `
-          <div style="font-family: sans-serif;">
-            <strong>${farmerName}</strong><br/>
-            ${farmerMobile}
-          </div>
-        `;
-
-        layer.bindTooltip(tooltipContent, {
-          permanent: false,
-          direction: "top",
-          className: "custom-tooltip",
-        });
-
-        layer.on("click", () => {
-          const farmer = validFarmers.find(
-            (f) => f.farmer.farmer_id === feature.properties?.farmer_id
-          );
-          if (farmer) {
-            setSelectedFarmer(farmer);
-            setIsModalOpen(true);
-          }
-        });
-
-        layer.on("mouseover", function () {
-          this.setStyle({
-            fillOpacity: 0.6,
-            weight: 3,
-          });
-        });
-
-        layer.on("mouseout", function () {
-          this.setStyle({
-            fillOpacity: 0.3,
-            weight: 2,
-          });
-        });
-      },
-    }).addTo(mapRef.current);
-
-    if (villageCode) {
-      const bounds = farmerLayerRef.current.getBounds();
-      if (bounds.isValid()) {
-        mapRef.current.fitBounds(bounds, { padding: [50, 50] });
-      }
-    }
-  }, [farmerData, villageCode]);
 
   // ---------------------------------------------------------------
   // RESET MAP VIEW WHEN NO VILLAGE SELECTED
@@ -489,7 +632,7 @@ export default function VillageMapComponent({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <button
           onClick={() => setMapType("street")}
           className={`px-4 py-2 rounded ${
@@ -507,6 +650,26 @@ export default function VillageMapComponent({
         >
           Satellite View
         </button>
+
+        <select
+          value={seasonId}
+          onChange={(e) => setSeasonId(Number(e.target.value))}
+          className="px-4 py-2 rounded bg-white border border-gray-300"
+        >
+          {SEASONS.map((season) => (
+            <option key={season.id} value={season.id}>
+              {season.name}
+            </option>
+          ))}
+        </select>
+
+        <input
+          type="number"
+          value={seasonYear}
+          onChange={(e) => setSeasonYear(Number(e.target.value))}
+          className="px-4 py-2 rounded bg-white border border-gray-300 w-24"
+          placeholder="Year"
+        />
 
         {farmerData.length > 0 && (
           <span className="text-sm text-gray-600 ml-auto">

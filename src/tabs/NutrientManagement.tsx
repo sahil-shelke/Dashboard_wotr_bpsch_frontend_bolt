@@ -15,102 +15,50 @@ import {
 import { useState, useEffect, useMemo } from "react";
 import { THEME } from "../utils/theme";
 
+const SEASONS = [
+  { id: 1, name: "Kharif" },
+  { id: 2, name: "Rabi" },
+  { id: 3, name: "Summer" },
+  { id: 4, name: "Annual" },
+];
+
+export type NutrientDetail = {
+  nutrient_mgmt_id: number;
+  fertilizer_name: string;
+  application_date: string;
+  quantity: number;
+  unit: string;
+};
+
 export type NutrientManagementRecord = {
+  crop_registration_id: string;
   farmer_name: string;
   farmer_mobile: string;
-  crop_name_en: string;
+  crop_name: string;
+  plot_area: number | null;
+  season: string | null;
+  season_year: string | null;
   surveyor_name: string;
-  surveyor_id: string;
+  surveyor_id: number;
   village_name: string;
   block_name: string;
   district_name: string;
-
-  plot_area: string;
-  urea_basal_dt: string;
-  urea_basal_kg: string;
-  ssp_date: string;
-  ssp_kg: string;
-  mop_date: string;
-  mop_kg: string;
-  dap_date: string;
-  dap_kg: string;
-
-  urea_30_days_dt: string;
-  urea30das_kg: string;
-
-  urea45days_date: string;
-  urea45das_kg: string;
-
-  foliar1_date: string;
-  foliar1_name: string;
-  foliar1_quantity: string;
-  foliar1_unit: string;
-
-  foliar2_date: string;
-  foliar2_name: string;
-  foliar2_quantity: string;
-  foliar2_unit: string;
-
-  foliar3_date: string;
-  foliar3_name: string;
-  foliar3_quantity: string;
-  foliar3_unit: string;
-
-  other_date: string;
-  other_name: string;
-  other_quantity_kg: string;
-
-  other2_date: string;
-  other2_name: string;
-  other2_quantity_kg: string;
+  nutrient_management: string;
 };
 
 const schemaFields: (keyof NutrientManagementRecord)[] = [
   "farmer_name",
+  "crop_name",
+  "plot_area",
+  "season",
+  "season_year",
+  "district_name",
+  "block_name",
+  "village_name",
+  "crop_registration_id",
   "farmer_mobile",
-  "crop_name_en",
   "surveyor_name",
   "surveyor_id",
-  "village_name",
-  "block_name",
-  "district_name",
-  "plot_area",
-  "urea_basal_dt",
-  "urea_basal_kg",
-  "ssp_date",
-  "ssp_kg",
-  "mop_date",
-  "mop_kg",
-  "dap_date",
-  "dap_kg",
-
-  "urea_30_days_dt",
-  "urea30das_kg",
-  "urea45days_date",
-  "urea45das_kg",
-
-  "foliar1_date",
-  "foliar1_name",
-  "foliar1_quantity",
-  "foliar1_unit",
-
-  "foliar2_date",
-  "foliar2_name",
-  "foliar2_quantity",
-  "foliar2_unit",
-
-  "foliar3_date",
-  "foliar3_name",
-  "foliar3_quantity",
-  "foliar3_unit",
-
-  "other_date",
-  "other_name",
-  "other_quantity_kg",
-
-  "other2_date",
-  "other2_name",
-  "other2_quantity_kg",
 ];
 
 function mask(value: any) {
@@ -128,20 +76,27 @@ function maskName(value: string) {
   return parts.join(" ");
 }
 
-
 function getTotalNutrients(r: NutrientManagementRecord) {
-  const nums = [
-    r.urea_basal_kg,
-    r.ssp_kg,
-    r.mop_kg,
-    r.dap_kg,
-    r.urea30das_kg,
-    r.urea45das_kg,
-    r.other_quantity_kg,
-    r.other2_quantity_kg,
-  ].map(v => parseFloat(v || "0"));
+  try {
+    const nutrients: NutrientDetail[] = JSON.parse(r.nutrient_management || "[]");
+    return nutrients.reduce((sum, n) => {
+      const quantity = n.quantity || 0;
+      const unit = (n.unit || "").toLowerCase();
+      const quantityInKg = unit === "gm" || unit === "g" ? quantity / 1000 : quantity;
+      return sum + quantityInKg;
+    }, 0);
+  } catch {
+    return 0;
+  }
+}
 
-  return nums.reduce((a, b) => a + (isNaN(b) ? 0 : b), 0);
+function getNutrientCount(r: NutrientManagementRecord) {
+  try {
+    const nutrients: NutrientDetail[] = JSON.parse(r.nutrient_management || "[]");
+    return nutrients.length;
+  } catch {
+    return 0;
+  }
 }
 
 function getStatus(r: NutrientManagementRecord) {
@@ -163,6 +118,9 @@ export default function NutrientManagementTable() {
   const [data, setData] = useState<NutrientManagementRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<NutrientManagementRecord | null>(null);
+  const [editingNutrients, setEditingNutrients] = useState<NutrientDetail[]>([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [completionFilter, setCompletionFilter] =
     useState<"all" | "completed" | "ongoing">("completed");
@@ -173,17 +131,21 @@ export default function NutrientManagementTable() {
 
   const [showColumnMenu, setShowColumnMenu] = useState(false);
 
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportSeasonId, setExportSeasonId] = useState(1);
+  const [exportSeasonYear, setExportSeasonYear] = useState(new Date().getFullYear());
+  const [isExporting, setIsExporting] = useState(false);
+
   const columnHelper = createColumnHelper<NutrientManagementRecord>();
 
-  // ⭐ FIX: CORRECT column typing
   const columns = useMemo<ColumnDef<NutrientManagementRecord, any>[]>(() => {
     const generated: ColumnDef<NutrientManagementRecord, any>[] = schemaFields.map(field => {
       if (field === "farmer_name") {
-  return columnHelper.accessor(field, {
-    header: field.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()),
-    cell: info => maskName(info.getValue()),
-  });
-}
+        return columnHelper.accessor(field, {
+          header: field.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()),
+          cell: info => maskName(info.getValue()),
+        });
+      }
 
       if (field === "farmer_mobile" || field === "surveyor_id") {
         return columnHelper.accessor(field, {
@@ -201,7 +163,6 @@ export default function NutrientManagementTable() {
       });
     });
 
-    // ⭐ Total Nutrients Column (Sortable, Using Function)
     generated.push(
       columnHelper.accessor(row => getTotalNutrients(row), {
         id: "total_nutrients",
@@ -212,41 +173,13 @@ export default function NutrientManagementTable() {
       })
     );
 
-
-
-//     generated.push(
-//   columnHelper.accessor(row => getSprayCount(row), {
-//     id: "spray_count",
-//     header: "Spray Count",
-//     cell: info => info.getValue(),
-//     sortingFn: "basic", // optional: react-table will handle it anyway
-//   })
-// );
-
-    // ⭐ Foliar Count
     generated.push(
-      columnHelper.display({
-        id: "foliar_count",
-        header: "Foliar Count",
+      columnHelper.accessor(row => getNutrientCount(row), {
+        id: "nutrient_count",
+        header: "Nutrient Count",
         enableSorting: true,
-        sortingFn: (a, b) => {
-          const count = (r: any) => {
-            let c = 0;
-            if (r.foliar1_date || r.foliar1_name) c++;
-            if (r.foliar2_date || r.foliar2_name) c++;
-            if (r.foliar3_date || r.foliar3_name) c++;
-            return c;
-          };
-          return count(a.original) - count(b.original);
-        },
-        cell: ({ row }) => {
-          const r = row.original;
-          let c = 0;
-          if (r.foliar1_date || r.foliar1_name) c++;
-          if (r.foliar2_date || r.foliar2_name) c++;
-          if (r.foliar3_date || r.foliar3_name) c++;
-          return c;
-        },
+        sortingFn: "basic",
+        cell: info => info.getValue(),
       })
     );
 
@@ -268,7 +201,12 @@ export default function NutrientManagementTable() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("/api/farm-management/nutrient-management");
+        const token = localStorage.getItem("authToken");
+        const res = await fetch("/api/nutrient_management/dashboard/get_all_records", {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
         const json = await res.json();
         setData(Array.isArray(json) ? json : []);
       } finally {
@@ -288,13 +226,15 @@ export default function NutrientManagementTable() {
     schemaFields.forEach(f => (v[f] = false));
 
     v["farmer_name"] = true;
-    v["crop_name_en"] = true;
+    v["crop_name"] = true;
+    v["plot_area"] = true;
+    v["season"] = true;
+    v["season_year"] = true;
     v["district_name"] = true;
     v["block_name"] = true;
     v["village_name"] = true;
-    v["plot_area"] = true;
     v["total_nutrients"] = true;
-    v["foliar_count"] = true;
+    v["nutrient_count"] = true;
 
     return v;
   });
@@ -370,47 +310,61 @@ export default function NutrientManagementTable() {
   });
 
   function exportCSV() {
-    if (!finalData.length) return;
+    setShowExportModal(true);
+  }
 
-    const headers = [...schemaFields, "total_nutrients", "foliar_count"];
+  async function handleExport() {
+    setIsExporting(true);
+    try {
+      const token = localStorage.getItem("authToken");
+      const url = `/api/nutrient_management/dashboard/get_export_data?season_id=${exportSeasonId}&season_year=${exportSeasonYear}`;
 
-    const rows = finalData.map(row =>
-      headers.map(h => {
-        let v: any = (row as any)[h];
-        if (h === "farmer_name") v = maskName(String(v));
-        if (h === "farmer_mobile" || h === "surveyor_id") v = mask(v);
-
-        if (h === "total_nutrients") {
-          v = getTotalNutrients(row).toFixed(2);
+      const res = await fetch(url, {
+        headers: {
+          "Authorization": `Bearer ${token}`
         }
+      });
 
-        if (h === "foliar_count") {
-          let c = 0;
-          if (row.foliar1_date || row.foliar1_name) c++;
-          if (row.foliar2_date || row.foliar2_name) c++;
-          if (row.foliar3_date || row.foliar3_name) c++;
-          v = c;
-        }
+      if (!res.ok) throw new Error("Export failed");
 
-        if (v == null) return "";
-        const s = String(v);
-        if (s.includes(",") || s.includes('"')) return `"${s.replace(/"/g, '""')}"`;
-        return s;
-      })
-    );
+      const exportData = await res.json();
 
-    const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
-    const BOM = "\uFEFF";
-    const blob = new Blob([BOM + csv], {
-      type: "text/csv;charset=utf-8;",
-    });
+      if (!Array.isArray(exportData) || exportData.length === 0) {
+        alert("No data available for export");
+        return;
+      }
 
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "nutrient_management.csv";
-    a.click();
-    URL.revokeObjectURL(url);
+      const headers = Object.keys(exportData[0]);
+
+      const rows = exportData.map(row =>
+        headers.map(h => {
+          const v = row[h];
+          if (v == null) return "";
+          const s = String(v);
+          if (s.includes(",") || s.includes('"')) return `"${s.replace(/"/g, '""')}"`;
+          return s;
+        })
+      );
+
+      const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+      const BOM = "\uFEFF";
+      const blob = new Blob([BOM + csv], {
+        type: "text/csv;charset=utf-8;",
+      });
+
+      const url2 = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url2;
+      a.download = `nutrient_management_${SEASONS.find(s => s.id === exportSeasonId)?.name}_${exportSeasonYear}.csv`;
+      a.click();
+      URL.revokeObjectURL(url2);
+
+      setShowExportModal(false);
+    } catch (error) {
+      alert("Failed to export data");
+    } finally {
+      setIsExporting(false);
+    }
   }
 
   if (loading) return <div className="p-6">Loading...</div>;
@@ -435,7 +389,7 @@ export default function NutrientManagementTable() {
 
             {showColumnMenu && (
               <div className="absolute right-0 mt-2 bg-white border rounded-lg shadow-lg w-60 p-3 z-50 max-h-72 overflow-y-auto">
-                {[...schemaFields, "total_nutrients", "foliar_count"].map(col => (
+                {[...schemaFields, "total_nutrients", "nutrient_count"].map(col => (
                   <label key={col} className="flex gap-2 text-sm mb-2">
                     <input
                       type="checkbox"
@@ -595,7 +549,7 @@ export default function NutrientManagementTable() {
 
       {selected && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white w-[480px] max-h-[90vh] rounded-lg shadow-xl p-5 overflow-y-auto">
+          <div className="bg-white w-[700px] max-h-[90vh] rounded-lg shadow-xl p-5 overflow-y-auto">
 
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-3">
@@ -611,35 +565,306 @@ export default function NutrientManagementTable() {
                 </span>
               </div>
 
-              <button className="text-gray-500 hover:text-black" onClick={() => setSelected(null)}>
+              <button
+                className="text-gray-500 hover:text-black"
+                onClick={() => {
+                  setSelected(null);
+                  setIsEditing(false);
+                  setEditingNutrients([]);
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4 mb-4">
+              <Field name="Farmer Name" value={maskName(selected.farmer_name)} />
+              <Field name="Farmer Mobile" value={mask(selected.farmer_mobile)} />
+              <Field name="Crop Name" value={selected.crop_name} />
+              <Field name="Surveyor Name" value={selected.surveyor_name} />
+              <Field name="Surveyor ID" value={mask(selected.surveyor_id)} />
+              <Field name="Village" value={selected.village_name} />
+              <Field name="Block" value={selected.block_name} />
+              <Field name="District" value={selected.district_name} />
+            </div>
+
+            <div className="mt-6">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-md font-semibold">Nutrient Applications</h3>
+                {!isEditing ? (
+                  <button
+                    onClick={() => {
+                      try {
+                        const nutrients = JSON.parse(selected.nutrient_management || "[]");
+                        setEditingNutrients(nutrients);
+                        setIsEditing(true);
+                      } catch {
+                        alert("Error loading nutrient data");
+                      }
+                    }}
+                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                  >
+                    Edit
+                  </button>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={async () => {
+                        setIsSaving(true);
+                        try {
+                          const token = localStorage.getItem("authToken");
+                          for (const nutrient of editingNutrients) {
+                            const response = await fetch(
+                              `/api/nutrient_management/dashboard/update/${nutrient.nutrient_mgmt_id}`,
+                              {
+                                method: "PUT",
+                                headers: {
+                                  "Content-Type": "application/json",
+                                  "Authorization": `Bearer ${token}`
+                                },
+                                body: JSON.stringify({
+                                  fertilizer_name: nutrient.fertilizer_name,
+                                  application_date: nutrient.application_date,
+                                  quantity: nutrient.quantity,
+                                  unit: nutrient.unit,
+                                }),
+                              }
+                            );
+                            if (!response.ok) throw new Error("Failed to update");
+                          }
+
+                          const updatedSelected = {
+                            ...selected,
+                            nutrient_management: JSON.stringify(editingNutrients),
+                          };
+                          setSelected(updatedSelected);
+
+                          setData(prev =>
+                            prev.map(item =>
+                              item.crop_registration_id === selected.crop_registration_id
+                                ? updatedSelected
+                                : item
+                            )
+                          );
+
+                          setIsEditing(false);
+                          alert("Successfully updated nutrient data");
+                        } catch (error) {
+                          alert("Failed to update nutrient data");
+                        } finally {
+                          setIsSaving(false);
+                        }
+                      }}
+                      disabled={isSaving}
+                      className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                    >
+                      {isSaving ? "Saving..." : "Save"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsEditing(false);
+                        setEditingNutrients([]);
+                      }}
+                      disabled={isSaving}
+                      className="px-3 py-1 text-sm bg-gray-600 text-white rounded hover:bg-gray-700 disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse border border-gray-300">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium">Fertilizer Name</th>
+                      <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium">Application Date</th>
+                      <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium">Quantity</th>
+                      <th className="border border-gray-300 px-3 py-2 text-left text-sm font-medium">Unit</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(() => {
+                      try {
+                        const nutrients: NutrientDetail[] = isEditing
+                          ? editingNutrients
+                          : JSON.parse(selected.nutrient_management || "[]");
+
+                        if (nutrients.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan={4} className="border border-gray-300 px-3 py-2 text-center text-sm text-gray-500">
+                                No nutrient applications recorded
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        return nutrients.map((nutrient, idx) => (
+                          <tr key={nutrient.nutrient_mgmt_id} className="hover:bg-gray-50">
+                            <td className="border border-gray-300 px-2 py-2 text-sm">
+                              {isEditing ? (
+                                <input
+                                  type="text"
+                                  value={nutrient.fertilizer_name}
+                                  onChange={(e) => {
+                                    const updated = [...editingNutrients];
+                                    updated[idx].fertilizer_name = e.target.value;
+                                    setEditingNutrients(updated);
+                                  }}
+                                  className="w-full px-2 py-1 border rounded"
+                                />
+                              ) : (
+                                nutrient.fertilizer_name
+                              )}
+                            </td>
+                            <td className="border border-gray-300 px-2 py-2 text-sm">
+                              {isEditing ? (
+                                <input
+                                  type="date"
+                                  value={nutrient.application_date}
+                                  onChange={(e) => {
+                                    const updated = [...editingNutrients];
+                                    updated[idx].application_date = e.target.value;
+                                    setEditingNutrients(updated);
+                                  }}
+                                  className="w-full px-2 py-1 border rounded"
+                                />
+                              ) : (
+                                nutrient.application_date
+                              )}
+                            </td>
+                            <td className="border border-gray-300 px-2 py-2 text-sm">
+                              {isEditing ? (
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={nutrient.quantity}
+                                  onChange={(e) => {
+                                    const updated = [...editingNutrients];
+                                    updated[idx].quantity = parseFloat(e.target.value) || 0;
+                                    setEditingNutrients(updated);
+                                  }}
+                                  className="w-full px-2 py-1 border rounded"
+                                />
+                              ) : (
+                                nutrient.quantity.toFixed(2)
+                              )}
+                            </td>
+                            <td className="border border-gray-300 px-2 py-2 text-sm">
+                              {isEditing ? (
+                                <select
+                                  value={nutrient.unit}
+                                  onChange={(e) => {
+                                    const updated = [...editingNutrients];
+                                    updated[idx].unit = e.target.value;
+                                    setEditingNutrients(updated);
+                                  }}
+                                  className="w-full px-2 py-1 border rounded"
+                                >
+                                  <option value="kg">kg</option>
+                                  <option value="gm">gm</option>
+                                  <option value="g">g</option>
+                                </select>
+                              ) : (
+                                nutrient.unit
+                              )}
+                            </td>
+                          </tr>
+                        ));
+                      } catch {
+                        return (
+                          <tr>
+                            <td colSpan={4} className="border border-gray-300 px-3 py-2 text-center text-sm text-red-500">
+                              Error loading nutrient data
+                            </td>
+                          </tr>
+                        );
+                      }
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="mt-3 text-sm font-medium">
+                Total: {isEditing
+                  ? (() => {
+                      const total = editingNutrients.reduce((sum, n) => {
+                        const quantity = n.quantity || 0;
+                        const unit = (n.unit || "").toLowerCase();
+                        const quantityInKg = unit === "gm" || unit === "g" ? quantity / 1000 : quantity;
+                        return sum + quantityInKg;
+                      }, 0);
+                      return total.toFixed(2);
+                    })()
+                  : getTotalNutrients(selected).toFixed(2)
+                } kg
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {showExportModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white w-[450px] rounded-lg shadow-xl p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold">Export Data</h2>
+              <button
+                className="text-gray-500 hover:text-black"
+                onClick={() => setShowExportModal(false)}
+              >
                 ✕
               </button>
             </div>
 
             <div className="space-y-4">
-              {[...schemaFields, "total_nutrients", "foliar_count"].map(key => {
-                let value: any = (selected as any)[key];
-                if (key === "farmer_name") value = maskName(value);
-                  if (key === "farmer_mobile") value = mask(value);
-                  if (key === "surveyor_id") value = mask(value);
+              <div className="flex flex-col">
+                <label className="text-sm font-medium mb-1">Season</label>
+                <select
+                  className="border rounded px-3 h-10"
+                  value={exportSeasonId}
+                  onChange={e => setExportSeasonId(Number(e.target.value))}
+                >
+                  {SEASONS.map(season => (
+                    <option key={season.id} value={season.id}>
+                      {season.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
+              <div className="flex flex-col">
+                <label className="text-sm font-medium mb-1">Season Year</label>
+                <input
+                  type="number"
+                  className="border rounded px-3 h-10"
+                  value={exportSeasonYear}
+                  onChange={e => setExportSeasonYear(Number(e.target.value))}
+                  min="2000"
+                  max="2100"
+                />
+              </div>
 
-                if (key === "total_nutrients") {
-                  value = getTotalNutrients(selected).toFixed(2);
-                }
-
-                if (key === "foliar_count") {
-                  let c = 0;
-                  if (selected.foliar1_date || selected.foliar1_name) c++;
-                  if (selected.foliar2_date || selected.foliar2_name) c++;
-                  if (selected.foliar3_date || selected.foliar3_name) c++;
-                  value = c;
-                }
-
-                return <Field key={key} name={key} value={value} />;
-              })}
+              <div className="flex gap-3 justify-end mt-6">
+                <button
+                  onClick={() => setShowExportModal(false)}
+                  disabled={isExporting}
+                  className="px-4 py-2 border rounded hover:bg-gray-100 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleExport}
+                  disabled={isExporting}
+                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                >
+                  {isExporting ? "Exporting..." : "Export"}
+                </button>
+              </div>
             </div>
-
           </div>
         </div>
       )}

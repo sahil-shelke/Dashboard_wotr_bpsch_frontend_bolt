@@ -103,7 +103,12 @@ export default function Dashboard(): JSX.Element {
   // Load all villages
   useEffect(() => {
     setLoading(true);
-    fetch("/api/villages/soil-moisture-villages")
+    const token = localStorage.getItem("authToken");
+    fetch("/api/location_dashboard/soil-moisture-villages", {
+      headers: {
+        "Authorization": `Bearer ${token}`
+      }
+    })
       .then(res => res.json())
       .then(data => {
         setVillages(data);
@@ -220,23 +225,32 @@ export default function Dashboard(): JSX.Element {
     setLoading(true);
     setError(null);
 
-    Promise.all([
-      fetch(
-        `/api/farm-management/soil-moisture-sensor?start_date=${startDate}&end_date=${endDate}&zone_id=${encodeURIComponent(
-          selectedVillage.zone_id
-        )}`
-      )
-        .then(r => r.json())
-        .catch(() => []),
+const token = localStorage.getItem("authToken");
 
-      fetch(
-        `/api/farm-management/davis-weather-v_code?start_date=${startDate}&end_date=${endDate}&village_code=${encodeURIComponent(
-          villageCode
-        )}`
-      )
-        .then(r => r.json())
-        .catch(() => []),
-    ])
+Promise.all([
+  fetch(
+    `/api/soil_moisture/dashboard/soil-moisture-sensor?start_date=${startDate}&end_date=${endDate}&zone_id=${encodeURIComponent(
+      selectedVillage.zone_id
+    )}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  ).then(r => r.json()),
+
+  fetch(
+    `/api/location_dashboard/davis-weather-v_code?start_date=${startDate}&end_date=${endDate}&village_code=${encodeURIComponent(
+      villageCode
+    )}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  ).then(r => r.json()),
+])
+
       .then(([soilRes, tempRes]) => {
         const soilData = Array.isArray(soilRes) ? soilRes : [];
         setSoilReadings(soilData);

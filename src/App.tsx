@@ -34,49 +34,23 @@ import SoilMoistureLiveTable from "./tabs/SoilMoistureSensor";
 import WeatherStationTable from "./tabs/DavisWeather";
 
 // ---------------------------------------------------
-//  SESSION VALIDATION USING TOKEN + VERIFY SESSION
+//  SESSION VALIDATION USING TOKEN
 // ---------------------------------------------------
 function useSessionCheck() {
   const [checking, setChecking] = useState(true);
   const [verified, setVerified] = useState(false);
 
   useEffect(() => {
-    async function verify() {
-      try {
-        const token = localStorage.getItem("authToken");
+    const token = localStorage.getItem("authToken");
+    const isAuthenticated = localStorage.getItem("isAuthenticated");
 
-        // If token missing, session invalid
-        if (!token) {
-          setVerified(false);
-          setChecking(false);
-          return;
-        }
-
-        const res = await fetch("/login/verify-session", {
-          method: "GET",
-          credentials: "include",
-          headers: {
-            "Authorization": `Bearer ${token}`,
-          },
-        });
-
-        const data = await res.json();
-
-        // backend response:
-        // { "email": "...", "valid": true }
-        if (data?.valid === true) {
-          setVerified(true);
-        } else {
-          setVerified(false);
-        }
-      } catch (err) {
-        setVerified(false);
-      }
-
-      setChecking(false);
+    if (token && isAuthenticated === "true") {
+      setVerified(true);
+    } else {
+      setVerified(false);
     }
 
-    verify();
+    setChecking(false);
   }, []);
 
   return { checking, verified };

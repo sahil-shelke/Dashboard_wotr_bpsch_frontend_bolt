@@ -183,7 +183,7 @@ export default function SoilMoistureLiveTable() {
     if (!zoneId) return;
     setLoading(true);
     try {
-      const url = `/api/farm-management/soil-moisture-sensor?zone_id=${encodeURIComponent(
+      const url = `/api/soil_moisture/dashboard/soil-moisture-sensor?zone_id=${encodeURIComponent(
         zoneId
       )}&start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`;
 
