@@ -78,13 +78,7 @@ const navData = {
       ],
     },
   ],
-  navSecondary: [
-   
-    // { title: "Crop Registrations", url: "/crop-registrations", icon: Wheat },
-   
-    // { title: "Farmers", url: "/farmers", icon: Users },
-    // { title: "Surveyors", url: "/surveyors", icon: Users },
-  ],
+  navSecondary: [],
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -94,6 +88,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const email = localStorage.getItem("sessionEmail") || "officer@agri.gov"
     setUserEmail(email)
   }, [])
+
+  const isSpecialUser = userEmail === 'aniket.shelke@wotr.org.in'
+
+  const conditionalMenuItems = isSpecialUser ? [
+    { title: "Farmers", url: "/farmers", icon: Users },
+    { title: "Crop Registration", url: "/crop-registrations", icon: Wheat },
+  ] : []
 
   const getInitials = (email: string) => {
     const name = email.split("@")[0]
@@ -141,6 +142,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavMain items={navData.navMain} />
         <SidebarMenu>
           {navData.navSecondary.map((item) => (
+            <SidebarMenuItem key={item.title}>
+              <SidebarMenuButton asChild>
+                <a href={item.url} className="flex items-center gap-3 hover:bg-[#7CB342]/10 text-xs">
+                  <item.icon className="h-5 w-5" />
+                  <span className="whitespace-normal leading-tight text-xs">{item.title}</span>
+                </a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
+          {conditionalMenuItems.map((item) => (
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton asChild>
                 <a href={item.url} className="flex items-center gap-3 hover:bg-[#7CB342]/10 text-xs">

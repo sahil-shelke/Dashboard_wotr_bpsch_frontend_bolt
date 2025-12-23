@@ -1,9 +1,8 @@
 import {
   useReactTable,
   getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
+  getPaginationRowModel,
   flexRender,
   createColumnHelper,
   type SortingState,
@@ -11,51 +10,71 @@ import {
   type VisibilityState,
 } from "@tanstack/react-table";
 
-import { useEffect, useMemo, useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { THEME } from "../utils/theme";
 
+const SEASONS = [
+  { id: 1, name: "Kharif" },
+  { id: 2, name: "Rabi" },
+  { id: 3, name: "Summer" },
+  { id: 4, name: "Annual" },
+];
+
 export type CropRegistrationRecord = {
+  crop_registration_id: string;
+  plot_area: number;
+  season: string;
+  season_id: number;
+  season_year: number;
   farmer_name: string;
   farmer_mobile: string;
-  crop_name_en: string;
+  crop_name: string;
   surveyor_name: string;
-  surveyor_id: string;
+  surveyor_id: number;
   village_name: string;
   block_name: string;
   district_name: string;
-  crop_registration_id: string;
-  crop_id: string;
-  farmer_id: string;
-  plot_area: string;
-  season: string;
-  year: string;
 };
 
-function safe(obj: any, key: string) {
-  const v = obj?.[key];
-  return v && String(v).trim() !== "" ? v : "—";
+const schemaFields: (keyof CropRegistrationRecord)[] = [
+  "farmer_name",
+  "farmer_mobile",
+  "crop_name",
+  "plot_area",
+  "season",
+  "season_year",
+  "surveyor_name",
+  "surveyor_id",
+  "village_name",
+  "block_name",
+  "district_name",
+  "crop_registration_id",
+];
+
+function mask(value: any) {
+  if (!value) return "—";
+  const s = String(value);
+  if (s.length <= 4) return "XXXX";
+  return "X".repeat(s.length - 4) + s.slice(-4);
 }
 
-// ===========================
-// MASKING HELPERS
-// ===========================
-function maskMobile(m: string) {
-  if (!m) return "—";
-  return m.replace(/^\d{6}/, "XXXXXX");
+function maskName(value: string) {
+  if (!value) return "—";
+  const parts = value.split(" ");
+  const first = parts[0];
+  parts[0] = "X".repeat(first.length);
+  return parts.join(" ");
 }
 
-function maskSurveyorId(id: string) {
-  if (!id) return "—";
-  return id.length <= 4 ? "XX" + id.slice(-2) : "XXXX" + id.slice(-4);
-}
-
-function maskFarmerId(fid: string) {
-  if (!fid) return "—";
-  const parts = fid.split("_");
-  if (parts.length !== 2) return fid;
-  const prefix = parts[0];
-  const num = parts[1];
-  return `${prefix}_XXXXXX${num.slice(-4)}`;
+function Field({ name, value }: any) {
+  return (
+    <div className="border-b pb-2">
+      <div className="text-xs uppercase text-gray-500">
+        {name.replace(/_/g, " ")}
+      </div>
+      <div className="text-sm">{value || "—"}</div>
+    </div>
+  );
 }
 
 export default function CropRegistrationTable() {
@@ -63,69 +82,70 @@ export default function CropRegistrationTable() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<CropRegistrationRecord | null>(null);
 
-  const [globalFilter, setGlobalFilter] = useState("");
   const [districtFilter, setDistrictFilter] = useState("");
   const [blockFilter, setBlockFilter] = useState("");
   const [villageFilter, setVillageFilter] = useState("");
+  const [showColumnMenu, setShowColumnMenu] = useState(false);
 
-  const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportSeasonId, setExportSeasonId] = useState(1);
+  const [exportSeasonYear, setExportSeasonYear] = useState(new Date().getFullYear());
+  const [isExporting, setIsExporting] = useState(false);
 
   const columnHelper = createColumnHelper<CropRegistrationRecord>();
 
-  const columns = [
-    columnHelper.accessor("farmer_name", { header: "Farmer Name" }),
-    columnHelper.accessor("crop_name_en", { header: "Crop" }),
-    columnHelper.accessor("surveyor_name", { header: "Surveyor Name" }),
-    columnHelper.accessor("village_name", { header: "Village" }),
-    columnHelper.accessor("block_name", { header: "Block" }),
-    columnHelper.accessor("district_name", { header: "District" }),
+  const columns = useMemo(() => {
+    const generated = schemaFields.map(field => {
+      if (field === "farmer_name") {
+        return columnHelper.accessor(field, {
+          header: field.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()),
+          cell: info => maskName(info.getValue()),
+        });
+      }
 
-    columnHelper.accessor("surveyor_id", {
-      header: "Surveyor ID",
-      cell: ({ getValue }) => maskSurveyorId(getValue() as string),
-    }),
+      if (field === "farmer_mobile" || field === "surveyor_id") {
+        return columnHelper.accessor(field, {
+          header: field.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()),
+          cell: info => mask(info.getValue()),
+        });
+      }
 
-    columnHelper.accessor("farmer_mobile", {
-      header: "Mobile",
-      cell: ({ getValue }) => maskMobile(getValue() as string),
-    }),
+      return columnHelper.accessor(field, {
+        header: field.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()),
+        cell: info => {
+          const v = info.getValue();
+          if (v === null || v === undefined) return "—";
+          return String(v);
+        },
+      });
+    });
 
-    columnHelper.accessor("plot_area", { header: "Plot Area" }),
-    columnHelper.accessor("season", { header: "Season" }),
-    columnHelper.accessor("year", { header: "Year" }),
+    generated.push(
+      columnHelper.display({
+        id: "actions",
+        header: "Actions",
+        cell: ({ row }) => (
+          <button className={THEME.buttons.primary} onClick={() => setSelected(row.original)}>
+            View
+          </button>
+        ),
+      })
+    );
 
-    columnHelper.accessor("crop_registration_id", { header: "Reg ID" }),
-    columnHelper.accessor("crop_id", { header: "Crop ID" }),
-
-    columnHelper.accessor("farmer_id", {
-      header: "Farmer ID",
-      cell: ({ getValue }) => maskFarmerId(getValue() as string),
-    }),
-
-    columnHelper.display({
-      id: "actions",
-      header: "Actions",
-      cell: ({ row }) => (
-        <button
-          className={THEME.buttons.primary}
-          onClick={() => setSelected(row.original)}
-        >
-          View
-        </button>
-      ),
-    }),
-  ];
-
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+    return generated;
+  }, []);
 
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("/api/farm-management/crop-registrations");
+        const token = localStorage.getItem("authToken");
+        const res = await fetch("/api/crop_registration/dashboard/get_all_records", {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
         const json = await res.json();
-        setData(json);
+        setData(Array.isArray(json) ? json : []);
       } finally {
         setLoading(false);
       }
@@ -133,130 +153,176 @@ export default function CropRegistrationTable() {
     load();
   }, []);
 
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [globalFilter, setGlobalFilter] = useState("");
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 12 });
+
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => {
+    const v: VisibilityState = {};
+    schemaFields.forEach(f => (v[f] = false));
+
+    v["farmer_name"] = true;
+    v["crop_name"] = true;
+    v["plot_area"] = true;
+    v["season"] = true;
+    v["season_year"] = true;
+    v["district_name"] = true;
+    v["block_name"] = true;
+    v["village_name"] = true;
+
+    return v;
+  });
+
   const uniqueDistricts = useMemo(
-    () => Array.from(new Set(data.map(r => r.district_name))).filter(Boolean).sort(),
+    () => [...new Set(data.map(r => r.district_name).filter(Boolean))].sort(),
     [data]
   );
 
   const uniqueBlocks = useMemo(
     () =>
-      Array.from(
-        new Set(
-          data
-            .filter(r => (!districtFilter || r.district_name === districtFilter))
-            .map(r => r.block_name)
-        )
-      )
-        .filter(Boolean)
-        .sort(),
+      [...new Set(
+        data
+          .filter(r => !districtFilter || r.district_name === districtFilter)
+          .map(r => r.block_name)
+          .filter(Boolean)
+      )].sort(),
     [data, districtFilter]
   );
 
   const uniqueVillages = useMemo(
     () =>
-      Array.from(
-        new Set(
-          data
-            .filter(r => (!districtFilter || r.district_name === districtFilter))
-            .filter(r => (!blockFilter || r.block_name === blockFilter))
-            .map(r => r.village_name)
-        )
-      )
-        .filter(Boolean)
-        .sort(),
+      [...new Set(
+        data
+          .filter(r => !districtFilter || r.district_name === districtFilter)
+          .filter(r => !blockFilter || r.block_name === blockFilter)
+          .map(r => r.village_name)
+          .filter(Boolean)
+      )].sort(),
     [data, districtFilter, blockFilter]
   );
 
-  const filteredData = useMemo(() => {
+  const finalData = useMemo(() => {
     const g = globalFilter.trim().toLowerCase();
-    return data.filter(rec => {
-      if (districtFilter && rec.district_name !== districtFilter) return false;
-      if (blockFilter && rec.block_name !== blockFilter) return false;
-      if (villageFilter && rec.village_name !== villageFilter) return false;
-      if (!g) return true;
-      return JSON.stringify(rec).toLowerCase().includes(g);
+
+    return data.filter(record => {
+      if (districtFilter && record.district_name !== districtFilter) return false;
+      if (blockFilter && record.block_name !== blockFilter) return false;
+      if (villageFilter && record.village_name !== villageFilter) return false;
+      if (g && !JSON.stringify(record).toLowerCase().includes(g)) return false;
+      return true;
     });
   }, [data, districtFilter, blockFilter, villageFilter, globalFilter]);
 
   const table = useReactTable({
-    data: filteredData,
+    data: finalData,
     columns,
-    state: { sorting, globalFilter, columnFilters, columnVisibility, pagination } as any,
+    state: { sorting, columnFilters, columnVisibility, pagination },
     onSortingChange: setSorting,
-    onGlobalFilterChange: setGlobalFilter,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     onPaginationChange: setPagination,
-
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
   });
+
+  function exportCSV() {
+    setShowExportModal(true);
+  }
+
+  async function handleExport() {
+    setIsExporting(true);
+    try {
+      const token = localStorage.getItem("authToken");
+      const url = `/api/crop_registration/dashboard/get_export_data?season_id=${exportSeasonId}&season_year=${exportSeasonYear}`;
+
+      const res = await fetch(url, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+
+      if (!res.ok) throw new Error("Export failed");
+
+      const exportData = await res.json();
+
+      if (!Array.isArray(exportData) || exportData.length === 0) {
+        alert("No data available for export");
+        return;
+      }
+
+      const headers = Object.keys(exportData[0]);
+
+      const rows = exportData.map(row =>
+        headers.map(h => {
+          const v = row[h];
+          if (v == null) return "";
+          const s = String(v);
+          if (s.includes(",") || s.includes('"')) return `"${s.replace(/"/g, '""')}"`;
+          return s;
+        })
+      );
+
+      const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+      const BOM = "\uFEFF";
+      const blob = new Blob([BOM + csv], {
+        type: "text/csv;charset=utf-8;",
+      });
+
+      const url2 = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url2;
+      a.download = `crop_registration_${SEASONS.find(s => s.id === exportSeasonId)?.name}_${exportSeasonYear}.csv`;
+      a.click();
+      URL.revokeObjectURL(url2);
+
+      setShowExportModal(false);
+    } catch (error) {
+      alert("Failed to export data");
+    } finally {
+      setIsExporting(false);
+    }
+  }
 
   if (loading) return <div className="p-6">Loading...</div>;
 
   return (
     <div className="w-full">
 
-      <div className="bg-white border border-gray-300 rounded-lg p-4 shadow-sm mb-6 w-full">
+      <div className="bg-white border rounded-lg p-4 shadow-sm mb-6 w-full">
 
         <div className="flex justify-between mb-4">
-
-          {/* Export */}
           <button
-            onClick={() => {
-              const headers = Object.keys(filteredData[0] || {});
-              const csvRows = [headers.join(",")];
-
-              filteredData.forEach(rec => {
-                const row = headers.map(h => {
-                  let val = rec[h as keyof CropRegistrationRecord] ?? "";
-
-                  if (h === "farmer_mobile") val = maskMobile(String(val));
-                  if (h === "surveyor_id") val = maskSurveyorId(String(val));
-                  if (h === "farmer_id") val = maskFarmerId(String(val));
-
-                  const s = String(val);
-                  return s.includes(",") ? `"${s}"` : s;
-                });
-                csvRows.push(row.join(","));
-              });
-
-              const blob = new Blob([csvRows.join("\n")], {
-                type: "text/csv;charset=utf-8",
-              });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = "crop_registrations.csv";
-              a.click();
-              URL.revokeObjectURL(url);
-            }}
+            onClick={exportCSV}
             className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700"
           >
             Export
           </button>
 
-          {/* Column Menu */}
           <div className="relative inline-block text-left">
             <button
-              onClick={() => setColumnVisibility(prev => ({ ...prev, __menu: !prev.__menu }))}
+              onClick={() => setShowColumnMenu(prev => !prev)}
               className="px-4 py-2 rounded bg-gray-700 text-white hover:bg-gray-800"
             >
               View Additional Data
             </button>
 
-            {columnVisibility.__menu && (
+            {showColumnMenu && (
               <div className="absolute right-0 mt-2 w-56 bg-white shadow-lg rounded-lg border border-gray-200 z-50 p-3 max-h-72 overflow-y-auto">
-                {table.getAllLeafColumns().map(col => (
-                  <label key={col.id} className="flex items-center gap-2 text-sm mb-2">
+                {schemaFields.map(col => (
+                  <label key={col} className="flex items-center gap-2 text-sm mb-2">
                     <input
                       type="checkbox"
-                      checked={col.getIsVisible()}
-                      onChange={col.getToggleVisibilityHandler()}
+                      checked={columnVisibility[col] ?? true}
+                      disabled={col === "plot_area"}
+                      onChange={e =>
+                        table.getColumn(col)?.toggleVisibility(e.target.checked)
+                      }
+                      className={col === "plot_area" ? "cursor-not-allowed opacity-50" : ""}
                     />
-                    {col.id}
+                    {col.replace(/_/g, " ")}
+                    {col === "plot_area" && <span className="text-xs text-gray-500">(always visible)</span>}
                   </label>
                 ))}
               </div>
@@ -264,23 +330,21 @@ export default function CropRegistrationTable() {
           </div>
         </div>
 
-        {/* Filters */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-
-          <div>
+          <div className="flex flex-col">
             <label className="text-sm font-medium">Search</label>
             <input
-              className="border rounded px-3 h-10 w-full"
+              className="border rounded px-3 h-10"
               placeholder="Search..."
               value={globalFilter}
               onChange={e => setGlobalFilter(e.target.value)}
             />
           </div>
 
-          <div>
+          <div className="flex flex-col">
             <label className="text-sm font-medium">District</label>
             <select
-              className="border rounded px-3 h-10 w-full"
+              className="border rounded px-3 h-10"
               value={districtFilter}
               onChange={e => {
                 setDistrictFilter(e.target.value);
@@ -288,17 +352,17 @@ export default function CropRegistrationTable() {
                 setVillageFilter("");
               }}
             >
-              <option value="">All</option>
+              <option value="">All Districts</option>
               {uniqueDistricts.map(d => (
                 <option key={d}>{d}</option>
               ))}
             </select>
           </div>
 
-          <div>
+          <div className="flex flex-col">
             <label className="text-sm font-medium">Block</label>
             <select
-              className="border rounded px-3 h-10 w-full"
+              className="border rounded px-3 h-10"
               value={blockFilter}
               disabled={!districtFilter}
               onChange={e => {
@@ -306,22 +370,22 @@ export default function CropRegistrationTable() {
                 setVillageFilter("");
               }}
             >
-              <option value="">All</option>
+              <option value="">All Blocks</option>
               {uniqueBlocks.map(b => (
                 <option key={b}>{b}</option>
               ))}
             </select>
           </div>
 
-          <div>
+          <div className="flex flex-col">
             <label className="text-sm font-medium">Village</label>
             <select
-              className="border rounded px-3 h-10 w-full"
+              className="border rounded px-3 h-10"
               value={villageFilter}
               disabled={!blockFilter}
               onChange={e => setVillageFilter(e.target.value)}
             >
-              <option value="">All</option>
+              <option value="">All Villages</option>
               {uniqueVillages.map(v => (
                 <option key={v}>{v}</option>
               ))}
@@ -329,30 +393,27 @@ export default function CropRegistrationTable() {
           </div>
         </div>
 
-        {/* Record Count */}
-        <div className="mt-4 flex justify-end">
-          <span className="text-sm text-gray-700">
-            Showing {filteredData.length} of {data.length} records
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <span className="ml-auto text-sm text-gray-600">
+            Showing {finalData.length} of {data.length} records
           </span>
         </div>
-
       </div>
 
-      {/* TABLE */}
       <div className={THEME.table.wrapper}>
         <table className={THEME.table.table}>
           <thead className={THEME.table.thead}>
             {table.getHeaderGroups().map(hg => (
               <tr key={hg.id}>
-                {hg.headers.map(h => (
+                {hg.headers.map(header => (
                   <th
-                    key={h.id}
+                    key={header.id}
                     className={THEME.table.theadText}
-                    onClick={h.column.getToggleSortingHandler()}
+                    onClick={header.column.getToggleSortingHandler()}
                   >
-                    {flexRender(h.column.columnDef.header, h.getContext())}
-                    {h.column.getIsSorted() === "asc" && " ▲"}
-                    {h.column.getIsSorted() === "desc" && " ▼"}
+                    {flexRender(header.column.columnDef.header, header.getContext())}
+                    {header.column.getIsSorted() === "asc" && " ▲"}
+                    {header.column.getIsSorted() === "desc" && " ▼"}
                   </th>
                 ))}
               </tr>
@@ -376,22 +437,21 @@ export default function CropRegistrationTable() {
         </table>
       </div>
 
-      {/* Pagination */}
-      <div className="flex gap-3 items-center mt-4">
+      <div className="flex gap-4 items-center mt-4">
         <button
-          className="border px-3 py-1 rounded disabled:opacity-50"
+          className="border px-3 py-2 rounded disabled:opacity-50"
           disabled={!table.getCanPreviousPage()}
           onClick={() => table.previousPage()}
         >
           Prev
         </button>
 
-        <span>
+        <span className="text-sm">
           Page {pagination.pageIndex + 1} / {table.getPageCount()}
         </span>
 
         <button
-          className="border px-3 py-1 rounded disabled:opacity-50"
+          className="border px-3 py-2 rounded disabled:opacity-50"
           disabled={!table.getCanNextPage()}
           onClick={() => table.nextPage()}
         >
@@ -399,65 +459,101 @@ export default function CropRegistrationTable() {
         </button>
       </div>
 
-      {/* MODAL */}
       {selected && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white w-[550px] max-h-[90vh] rounded-lg shadow-xl p-5 overflow-y-auto">
+          <div className="bg-white w-[600px] max-h-[90vh] rounded-lg shadow-xl p-5 overflow-y-auto">
+
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold">Crop Registration Details</h2>
-              <button className="text-gray-500 hover:text-black" onClick={() => setSelected(null)}>
+              <button
+                className="text-gray-500 hover:text-black"
+                onClick={() => setSelected(null)}
+              >
                 ✕
               </button>
             </div>
 
             <div className="space-y-4">
+              <Field name="Farmer Name" value={maskName(selected.farmer_name)} />
+              <Field name="Farmer Mobile" value={mask(selected.farmer_mobile)} />
+              <Field name="Crop Name" value={selected.crop_name} />
+              <Field name="Plot Area" value={selected.plot_area} />
+              <Field name="Season" value={selected.season} />
+              <Field name="Season Year" value={selected.season_year} />
+              <Field name="Surveyor Name" value={selected.surveyor_name} />
+              <Field name="Surveyor ID" value={mask(selected.surveyor_id)} />
+              <Field name="Village" value={selected.village_name} />
+              <Field name="Block" value={selected.block_name} />
+              <Field name="District" value={selected.district_name} />
+              <Field name="Crop Registration ID" value={selected.crop_registration_id} />
+            </div>
 
-              <section>
-                <h3 className="text-sm font-semibold mb-2">Farmer Details</h3>
-                {["farmer_name", "farmer_mobile", "farmer_id"].map(k => (
-                  <div key={k} className="border-b pb-2">
-                    <div className="text-xs text-gray-500 uppercase">{k.replace(/_/g, " ")}</div>
+          </div>
+        </div>
+      )}
 
-                    <div className="text-sm">
-                      {k === "farmer_mobile"
-                        ? maskMobile(selected.farmer_mobile)
-                        : k === "farmer_id"
-                        ? maskFarmerId(selected.farmer_id)
-                        : safe(selected, k)}
-                    </div>
-                  </div>
-                ))}
-              </section>
+      {showExportModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white w-[450px] rounded-lg shadow-xl p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold">Export Data</h2>
+              <button
+                className="text-gray-500 hover:text-black"
+                onClick={() => setShowExportModal(false)}
+              >
+                ✕
+              </button>
+            </div>
 
-              <section>
-                <h3 className="text-sm font-semibold mb-2">Crop Details</h3>
-                {["crop_name_en", "crop_id", "plot_area", "season", "year"].map(k => (
-                  <div key={k} className="border-b pb-2">
-                    <div className="text-xs text-gray-500 uppercase">{k.replace(/_/g, " ")}</div>
-                    <div className="text-sm">{safe(selected, k)}</div>
-                  </div>
-                ))}
-              </section>
+            <div className="space-y-4">
+              <div className="flex flex-col">
+                <label className="text-sm font-medium mb-1">Season</label>
+                <select
+                  className="border rounded px-3 h-10"
+                  value={exportSeasonId}
+                  onChange={e => setExportSeasonId(Number(e.target.value))}
+                >
+                  {SEASONS.map(season => (
+                    <option key={season.id} value={season.id}>
+                      {season.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-              <section>
-                <h3 className="text-sm font-semibold mb-2">Surveyor & Location</h3>
-                {["surveyor_name", "surveyor_id", "village_name", "block_name", "district_name"].map(k => (
-                  <div key={k} className="border-b pb-2">
-                    <div className="text-xs text-gray-500 uppercase">{k.replace(/_/g, " ")}</div>
+              <div className="flex flex-col">
+                <label className="text-sm font-medium mb-1">Season Year</label>
+                <input
+                  type="number"
+                  className="border rounded px-3 h-10"
+                  value={exportSeasonYear}
+                  onChange={e => setExportSeasonYear(Number(e.target.value))}
+                  min="2000"
+                  max="2100"
+                />
+              </div>
 
-                    <div className="text-sm">
-                      {k === "surveyor_id"
-                        ? maskSurveyorId(selected.surveyor_id)
-                        : safe(selected, k)}
-                    </div>
-                  </div>
-                ))}
-              </section>
-
+              <div className="flex gap-3 justify-end mt-6">
+                <button
+                  onClick={() => setShowExportModal(false)}
+                  disabled={isExporting}
+                  className="px-4 py-2 border rounded hover:bg-gray-100 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleExport}
+                  disabled={isExporting}
+                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                >
+                  {isExporting ? "Exporting..." : "Export"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
+
     </div>
   );
 }
