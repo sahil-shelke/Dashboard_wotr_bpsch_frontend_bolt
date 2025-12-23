@@ -78,11 +78,10 @@ function maskName(value: string) {
 }
 
 function getStatus(record: LandPreparationRecord) {
-  const fields = [record.ploughing_date, record.harrow_date];
-  const filledCount = fields.filter(v => v && v.trim() !== "").length;
+  const hasPloughing = record.ploughing_date && record.ploughing_date.trim() !== "";
+  const hasHarrowing = record.harrow_date && record.harrow_date.trim() !== "";
 
-  if (filledCount === 0) return "ongoing";
-  if (filledCount >= fields.length) return "completed";
+  if (hasPloughing || hasHarrowing) return "completed";
   return "ongoing";
 }
 
