@@ -104,7 +104,13 @@ function getIrrigationCount(r: IrrigationManagementRecord) {
 }
 
 function getStatus(r: IrrigationManagementRecord) {
-  return getIrrigationCount(r) > 0 ? "completed" : "ongoing";
+  const hasValue = (v: any) => v !== null && v !== undefined && String(v).trim() !== "";
+
+  const hasIrrigationMethod = hasValue(r.irrigation_method);
+  const hasPumpHp = hasValue(r.pump_hp);
+
+  if (hasIrrigationMethod && hasPumpHp) return "completed";
+  return "ongoing";
 }
 
 function Field({ name, value }: any) {
