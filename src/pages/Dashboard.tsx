@@ -31,6 +31,14 @@ interface AnnualAgriStats {
   total_turnover: number;
 }
 
+interface StateFPOAgriStats {
+  fpo_id: number;
+  fpo_name: string;
+  input_commodity_total: number;
+  output_commodity_total: number;
+  total_turnover: number;
+}
+
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const [stats, setStats] = useState<Stats>({
@@ -47,13 +55,28 @@ const Dashboard: React.FC = () => {
   const [annualStats, setAnnualStats] = useState<AnnualAgriStats[]>([]);
   const [selectedYear, setSelectedYear] = useState<string>('');
   const [loadingAnnualStats, setLoadingAnnualStats] = useState(false);
+  const [stateAgriStats, setStateAgriStats] = useState<StateFPOAgriStats[]>([]);
+  const [selectedStateCode, setSelectedStateCode] = useState<string>('');
+  const [selectedStateFyYear, setSelectedStateFyYear] = useState<string>('');
+  const [loadingStateStats, setLoadingStateStats] = useState(false);
 
   useEffect(() => {
     fetchDashboardStats();
+
+    const getCurrentFY = () => {
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+      const fyStartYear = currentMonth < 3 ? currentYear - 1 : currentYear;
+      return `${fyStartYear}-${(fyStartYear + 1).toString()}`;
+    };
+
     if (user?.role === 'agribusiness_officer') {
-      const currentYear = new Date().getFullYear();
-      const defaultYear = `${currentYear}-${(currentYear + 1).toString()}`;
-      setSelectedYear(defaultYear);
+      setSelectedYear(getCurrentFY());
+    }
+    if (user?.role === 'super_admin') {
+      setSelectedStateCode('27');
+      setSelectedStateFyYear(getCurrentFY());
     }
   }, [user]);
 
@@ -62,6 +85,12 @@ const Dashboard: React.FC = () => {
       fetchAnnualAgriStats(selectedYear);
     }
   }, [selectedYear, user]);
+
+  useEffect(() => {
+    if (user?.role === 'super_admin' && selectedStateCode && selectedStateFyYear) {
+      fetchStateAgriStats(selectedStateCode, selectedStateFyYear);
+    }
+  }, [selectedStateCode, selectedStateFyYear, user]);
 
   const generateFYYears = () => {
     const years = [];
@@ -94,8 +123,30 @@ const fetchAnnualAgriStats = async (year: string) => {
   }
 };
 
+const fetchStateAgriStats = async (stateCode: string, fyYear: string) => {
+  setLoadingStateStats(true);
+  try {
+    const token = localStorage.getItem('token');
+    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+    const response = await axios.get('/api/dashboard/agri-business/state/', {
+      headers,
+      params: {
+        state_code: stateCode,
+        fy_year: fyYear
+      }
+    });
+    setStateAgriStats(response.data);
+    console.log('State agri stats:', response.data);
+  } catch (error) {
+    console.error('Error fetching state agribusiness stats:', error);
+    toast.error('Failed to load state statistics');
+    setStateAgriStats([]);
+  } finally {
+    setLoadingStateStats(false);
+  }
+};
 
-  const fetchDashboardStats = async () => {
+const fetchDashboardStats = async () => {
     try {
       const token = localStorage.getItem('token');
       const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
@@ -255,6 +306,31 @@ const fetchAnnualAgriStats = async (year: string) => {
     return totals;
   };
 
+  const calculateStateTotals = () => {
+    const totals = stateAgriStats.reduce((acc, item) => ({
+      input_commodity_total: acc.input_commodity_total + item.input_commodity_total,
+      output_commodity_total: acc.output_commodity_total + item.output_commodity_total,
+      total_turnover: acc.total_turnover + item.total_turnover
+    }), { input_commodity_total: 0, output_commodity_total: 0, total_turnover: 0 });
+    return totals;
+  };
+
+  const getMaxTurnover = () => {
+    if (stateAgriStats.length === 0) return 0;
+    return Math.max(...stateAgriStats.map(item => item.total_turnover));
+  };
+
+const INDIAN_STATES = [
+  { code: '20', name: 'Jharkhand' },
+  { code: '21', name: 'Odisha' },
+  { code: '22', name: 'Chhattisgarh' },
+  { code: '23', name: 'Madhya Pradesh' },
+  { code: '27', name: 'Maharashtra' },
+  { code: '36', name: 'Telangana' },
+  { code: '8',  name: 'Rajasthan' }
+];
+
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -292,95 +368,129 @@ const fetchAnnualAgriStats = async (year: string) => {
         ))}
       </div>
 
-      {/* Quick Actions */}
-      <div className="card p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          {user?.role === 'super_admin' ? 'Admin Actions' : 
-           user?.role === 'regional_manager' ? 'Regional Manager Actions' :
-           user?.role === 'project_manager' ? 'Project Manager Actions' : 'FPC Actions'}
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {user?.role === 'super_admin' && (
-            <>
-              <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left">
-                <CheckSquare className="h-8 w-8 text-primary-600 mb-2" />
-                <h3 className="font-medium text-gray-900">Review Approvals</h3>
-                <p className="text-sm text-gray-600">Review pending FPC registration requests</p>
-              </button>
-              <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left">
-                <Building2 className="h-8 w-8 text-green-600 mb-2" />
-                <h3 className="font-medium text-gray-900">Manage FPCs</h3>
-                <p className="text-sm text-gray-600">View and manage all FPCs</p>
-              </button>
-              <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left">
-                <Users className="h-8 w-8 text-purple-600 mb-2" />
-                <h3 className="font-medium text-gray-900">User Management</h3>
-                <p className="text-sm text-gray-600">Manage regional managers and users</p>
-              </button>
-            </>
-          )}
-          
-          {user?.role === 'regional_manager' && (
-            <>
-              <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left">
-                <Building2 className="h-8 w-8 text-primary-600 mb-2" />
-                <h3 className="font-medium text-gray-900">Create FPC Request</h3>
-                <p className="text-sm text-gray-600">Submit new FPC registration request</p>
-              </button>
-              <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left">
-                <FileText className="h-8 w-8 text-green-600 mb-2" />
-                <h3 className="font-medium text-gray-900">Track Requests</h3>
-                <p className="text-sm text-gray-600">Monitor status of submitted requests</p>
-              </button>
-              <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left">
-                <Users className="h-8 w-8 text-purple-600 mb-2" />
-                <h3 className="font-medium text-gray-900">Manage Team</h3>
-                <p className="text-sm text-gray-600">Oversee project managers and FPCs</p>
-              </button>
-            </>
-          )}
+      {/* State-wise FPO Agribusiness Statistics for Super Admin */}
+      {user?.role === 'super_admin' && (
+        <div className="card p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-semibold text-gray-900">FPO Agribusiness Statistics by State (Filtered View)</h2>
+            <div className="flex items-center space-x-3">
+              <label className="text-sm font-medium text-gray-700">State:</label>
+              <select
+                value={selectedStateCode}
+                onChange={(e) => setSelectedStateCode(e.target.value)}
+                className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+              >
+                <option value="">Choose state</option>
+                {INDIAN_STATES.map(state => (
+                  <option key={state.code} value={state.code}>{state.name}</option>
+                ))}
+              </select>
+              <label className="text-sm font-medium text-gray-700">Financial Year:</label>
+              <select
+                value={selectedStateFyYear}
+                onChange={(e) => setSelectedStateFyYear(e.target.value)}
+                className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all"
+              >
+                <option value="">Choose FY</option>
+                {generateFYYears().map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
+          </div>
 
-          {user?.role === 'project_manager' && (
-            <>
-              <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left">
-                <Building2 className="h-8 w-8 text-primary-600 mb-2" />
-                <h3 className="font-medium text-gray-900">My FPCs</h3>
-                <p className="text-sm text-gray-600">Manage assigned FPCs</p>
-              </button>
-              <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left">
-                <FileText className="h-8 w-8 text-green-600 mb-2" />
-                <h3 className="font-medium text-gray-900">Generate Reports</h3>
-                <p className="text-sm text-gray-600">Create progress and status reports</p>
-              </button>
-              <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left">
-                <TrendingUp className="h-8 w-8 text-purple-600 mb-2" />
-                <h3 className="font-medium text-gray-900">Performance</h3>
-                <p className="text-sm text-gray-600">Track FPC performance metrics</p>
-              </button>
-            </>
-          )}
+          {loadingStateStats ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600"></div>
+            </div>
+          ) : !selectedStateCode || !selectedStateFyYear ? (
+            <div className="text-center py-12">
+              <TrendingUp className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Select State and Financial Year</h3>
+              <p className="text-gray-600">Choose both a state and financial year to view FPO agribusiness statistics</p>
+            </div>
+          ) : stateAgriStats.length === 0 ? (
+            <div className="text-center py-12">
+              <TrendingUp className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No Data Available</h3>
+              <p className="text-gray-600">No agribusiness statistics found for {INDIAN_STATES.find(s => s.code === selectedStateCode)?.name} in {selectedStateFyYear}</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
+                  <p className="text-sm font-medium text-blue-700 mb-1">Total Input Commodity</p>
+                  <p className="text-2xl font-bold text-blue-900">₹{calculateStateTotals().input_commodity_total.toLocaleString()}</p>
+                </div>
+                <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
+                  <p className="text-sm font-medium text-green-700 mb-1">Total Output Commodity</p>
+                  <p className="text-2xl font-bold text-green-900">₹{calculateStateTotals().output_commodity_total.toLocaleString()}</p>
+                </div>
+                <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-lg border border-orange-200">
+                  <p className="text-sm font-medium text-orange-700 mb-1">Total Turnover</p>
+                  <p className="text-2xl font-bold text-orange-900">₹{calculateStateTotals().total_turnover.toLocaleString()}</p>
+                </div>
+              </div>
 
-          {user?.role === 'fpc_user' && (
-            <>
-              <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left">
-                <Building2 className="h-8 w-8 text-primary-600 mb-2" />
-                <h3 className="font-medium text-gray-900">FPO Management</h3>
-                <p className="text-sm text-gray-600">Manage your FPO details and information</p>
-              </button>
-              <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left">
-                <Users className="h-8 w-8 text-green-600 mb-2" />
-                <h3 className="font-medium text-gray-900">Manage Members</h3>
-                <p className="text-sm text-gray-600">Handle shareholder and member data</p>
-              </button>
-              <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left">
-                <FileText className="h-8 w-8 text-purple-600 mb-2" />
-                <h3 className="font-medium text-gray-900">Financial & Compliance</h3>
-                <p className="text-sm text-gray-600">Track financial details and compliance status</p>
-              </button>
-            </>
+              {/* Bar Chart Visualization */}
+              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                <h3 className="text-md font-semibold text-gray-900 mb-4">Turnover Comparison</h3>
+                <div className="space-y-3">
+                  {stateAgriStats.map((item) => {
+                    const maxTurnover = getMaxTurnover();
+                    const percentage = maxTurnover > 0 ? (item.total_turnover / maxTurnover) * 100 : 0;
+                    return (
+                      <div key={item.fpo_id} className="space-y-1">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="font-medium text-gray-700 truncate max-w-xs">{item.fpo_name}</span>
+                          <span className="text-gray-600 ml-2">₹{item.total_turnover.toLocaleString()}</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                          <div
+                            className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-500 ease-out"
+                            style={{ width: `${percentage}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Data Table */}
+              <div className="overflow-x-auto">
+                <table className="min-w-full border-collapse">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="px-4 py-3 text-left text-sm font-bold text-gray-900 border border-gray-300">FPO Name</th>
+                      <th className="px-4 py-3 text-right text-sm font-bold text-gray-900 border border-gray-300">Input Commodity</th>
+                      <th className="px-4 py-3 text-right text-sm font-bold text-gray-900 border border-gray-300">Output Commodity</th>
+                      <th className="px-4 py-3 text-right text-sm font-bold text-gray-900 border border-gray-300">Total Turnover</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stateAgriStats.map((item, idx) => (
+                      <tr key={item.fpo_id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900 border border-gray-300">{item.fpo_name}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900 text-right border border-gray-300">₹{item.input_commodity_total.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900 text-right border border-gray-300">₹{item.output_commodity_total.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900 text-right border border-gray-300">₹{item.total_turnover.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                    <tr className="bg-blue-100 font-bold">
+                      <td className="px-4 py-3 text-sm text-gray-900 border border-gray-300">Grand Total</td>
+                      <td className="px-4 py-3 text-sm text-gray-900 text-right border border-gray-300">₹{calculateStateTotals().input_commodity_total.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900 text-right border border-gray-300">₹{calculateStateTotals().output_commodity_total.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900 text-right border border-gray-300">₹{calculateStateTotals().total_turnover.toLocaleString()}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
         </div>
-      </div>
+      )}
 
       {/* Annual Agribusiness Statistics for Agribusiness Officers */}
       {user?.role === 'agribusiness_officer' && (
