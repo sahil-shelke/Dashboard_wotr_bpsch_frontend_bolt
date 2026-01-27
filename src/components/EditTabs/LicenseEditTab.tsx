@@ -11,6 +11,7 @@ interface LicenseFormData {
   license_number: string;
   license_date?: string;
   license_expiry?: string;
+  license_doc_url?: string | null;
 }
 
 interface License extends LicenseFormData {
@@ -80,6 +81,7 @@ const LicenseEditTab: React.FC<LicenseEditTabProps> = ({ fpoId }) => {
   const handleEdit = (license: License) => {
     setEditingId(license.id);
     setOriginalData(license);
+    setLicenseFile(null);
     reset({
       ...license,
       license_date: license.license_date?.split('T')[0] || '',
@@ -240,6 +242,25 @@ const LicenseEditTab: React.FC<LicenseEditTabProps> = ({ fpoId }) => {
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">License Document (Image/PDF)</label>
+
+        {originalData?.license_doc_url && !licenseFile && (
+          <div className="mb-2 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <FileText className="h-5 w-5 text-blue-600" />
+              <span className="text-sm text-gray-700">Current Document Available</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => window.open(originalData.license_doc_url!, '_blank')}
+              className="inline-flex items-center space-x-1 px-3 py-1.5 bg-blue-100 hover:bg-blue-200 rounded transition-colors"
+              title="View current document"
+            >
+              <Eye className="h-4 w-4 text-blue-600" />
+              <span className="text-sm font-medium text-blue-600">View</span>
+            </button>
+          </div>
+        )}
+
         <div className="mt-1">
           <input
             id="license-upload"
@@ -264,7 +285,7 @@ const LicenseEditTab: React.FC<LicenseEditTabProps> = ({ fpoId }) => {
           >
             <Upload className="h-5 w-5 text-gray-400 mr-2" />
             <span className="text-sm text-gray-600">
-              {licenseFile ? 'Change Document' : 'Upload License Document'}
+              {licenseFile ? 'Change Document' : originalData?.license_doc_url ? 'Replace Document' : 'Upload License Document'}
             </span>
           </label>
           {licenseFile && (
@@ -381,7 +402,7 @@ const LicenseEditTab: React.FC<LicenseEditTabProps> = ({ fpoId }) => {
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                     {license.license_date && (
                       <div>
                         <p className="text-gray-500">License Date</p>
@@ -396,6 +417,19 @@ const LicenseEditTab: React.FC<LicenseEditTabProps> = ({ fpoId }) => {
                         <p className="font-medium text-gray-900">
                           {new Date(license.license_expiry).toLocaleDateString()}
                         </p>
+                      </div>
+                    )}
+                    {license.license_doc_url && (
+                      <div>
+                        <p className="text-gray-500 mb-1">License Document</p>
+                        <button
+                          onClick={() => window.open(license.license_doc_url!, '_blank')}
+                          className="inline-flex items-center space-x-2 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition-colors"
+                          title="View license document"
+                        >
+                          <Eye className="h-4 w-4 text-blue-600" />
+                          <span className="text-sm font-medium text-blue-600">View Document</span>
+                        </button>
                       </div>
                     )}
                   </div>
