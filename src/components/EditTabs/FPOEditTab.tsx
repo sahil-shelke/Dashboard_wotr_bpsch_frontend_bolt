@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { Save, Building2, Edit, X } from 'lucide-react';
+import { Save, Building2, Edit, X, Eye } from 'lucide-react';
 
 interface FPOData {
   name: string;
@@ -12,6 +12,9 @@ interface FPOData {
   pan: string;
   tan: string;
   gst_number: string;
+  pan_doc_url?: string | null;
+  tan_doc_url?: string | null;
+  gst_number_doc_url?: string | null;
   registration_date: string;
   registered_company_address: string;
   office_address: string;
@@ -493,15 +496,48 @@ const FPOEditTab: React.FC<FPOEditTabProps> = ({ fpoId }) => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
               <div>
                 <p className="text-xs text-gray-500 mb-1">PAN Number</p>
-                <p className="font-medium text-gray-900">{fpoData.pan}</p>
+                <div className="flex items-center space-x-2">
+                  <p className="font-medium text-gray-900">{fpoData.pan}</p>
+                  {fpoData.pan_doc_url && (
+                    <button
+                      onClick={() => window.open(fpoData.pan_doc_url!, '_blank')}
+                      className="p-1 hover:bg-gray-100 rounded transition-colors"
+                      title="View PAN document"
+                    >
+                      <Eye className="h-4 w-4 text-blue-600" />
+                    </button>
+                  )}
+                </div>
               </div>
               <div>
                 <p className="text-xs text-gray-500 mb-1">TAN Number</p>
-                <p className="font-medium text-gray-900">{fpoData.tan}</p>
+                <div className="flex items-center space-x-2">
+                  <p className="font-medium text-gray-900">{fpoData.tan}</p>
+                  {fpoData.tan_doc_url && (
+                    <button
+                      onClick={() => window.open(fpoData.tan_doc_url!, '_blank')}
+                      className="p-1 hover:bg-gray-100 rounded transition-colors"
+                      title="View TAN document"
+                    >
+                      <Eye className="h-4 w-4 text-blue-600" />
+                    </button>
+                  )}
+                </div>
               </div>
               <div>
                 <p className="text-xs text-gray-500 mb-1">GST Number</p>
-                <p className="font-medium text-gray-900">{fpoData.gst_number}</p>
+                <div className="flex items-center space-x-2">
+                  <p className="font-medium text-gray-900">{fpoData.gst_number}</p>
+                  {fpoData.gst_number_doc_url && (
+                    <button
+                      onClick={() => window.open(fpoData.gst_number_doc_url!, '_blank')}
+                      className="p-1 hover:bg-gray-100 rounded transition-colors"
+                      title="View GST document"
+                    >
+                      <Eye className="h-4 w-4 text-blue-600" />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
