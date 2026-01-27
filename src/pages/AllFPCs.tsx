@@ -302,7 +302,7 @@ const fetchRegionalManagers = async () => {
         office_contact_email: data.office_contact_email,
         responsible_wotr_staff_phone: data.responsible_wotr_staff_phone,
         project_manager_phone: data.project_manager_phone,
-        is_approved: true
+        is_approved: true,
       };
 
       const bod_details = {
@@ -600,15 +600,15 @@ const uniqueStates = [...new Set(fpos.map(fpo => fpo.state_name))].filter(Boolea
                   <div>
                     <label className="form-label">District *</label>
                     <select
-                      {...register('district_code', { required: 'District is required' })}
+                      {...register('district_code', { required: 'District is required', valueAsNumber: true })}
                       className="form-input"
-                      disabled={!selectedState}
+                      disabled={!selectedStateCode}
                     >
                       <option value="">Select District</option>
                       {districts
-                        .filter(d => d.state_name === selectedState)
+                        .filter(d => d.state_code === selectedStateCode)
                         .map((district) => (
-                          <option key={district.district_code} value={district.district_code.toString()}>
+                          <option key={district.district_code} value={district.district_code}>
                             {district.district_name}
                           </option>
                         ))}
@@ -986,10 +986,10 @@ const uniqueStates = [...new Set(fpos.map(fpo => fpo.state_name))].filter(Boolea
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="form-label">GST Number *</label>
+                    <label className="form-label">GST Number</label>
                     <input
                       {...register('gst_number', {
-                        required: 'GST number is required',
+                        // required: 'GST number is required',
                       })}
                       className="form-input"
                       placeholder="Enter GST number"
@@ -1048,40 +1048,38 @@ const uniqueStates = [...new Set(fpos.map(fpo => fpo.state_name))].filter(Boolea
                   </div>
                 </div>
               </div>
+                <div className="flex justify-end space-x-4 pt-6 border-t">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCreateForm(false);
+                      reset();
+                      setPanFile(null);
+                      setTanFile(null);
+                      setGstFile(null);
+                      const panInput = document.getElementById('pan-upload') as HTMLInputElement;
+                      const tanInput = document.getElementById('tan-upload') as HTMLInputElement;
+                      const gstInput = document.getElementById('gst-upload') as HTMLInputElement;
+                      if (panInput) panInput.value = '';
+                      if (tanInput) tanInput.value = '';
+                      if (gstInput) gstInput.value = '';
+                    }}
+                    className="btn-secondary"
+                    disabled={createLoading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={createLoading}
+                    className="btn-primary flex items-center space-x-2"
+                  >
+                    <Save className="h-4 w-4" />
+                    <span>{createLoading ? 'Creating FPC...' : 'Create FPC'}</span>
+                  </button>
+                </div>
               </div>
             </form>
-
-            <div className="flex justify-end space-x-4 p-6 border-t bg-gray-50 flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCreateForm(false);
-                  reset();
-                  setPanFile(null);
-                  setTanFile(null);
-                  setGstFile(null);
-                  const panInput = document.getElementById('pan-upload') as HTMLInputElement;
-                  const tanInput = document.getElementById('tan-upload') as HTMLInputElement;
-                  const gstInput = document.getElementById('gst-upload') as HTMLInputElement;
-                  if (panInput) panInput.value = '';
-                  if (tanInput) tanInput.value = '';
-                  if (gstInput) gstInput.value = '';
-                }}
-                className="btn-secondary"
-                disabled={createLoading}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                onClick={handleSubmit(onSubmit)}
-                disabled={createLoading}
-                className="btn-primary flex items-center space-x-2"
-              >
-                <Save className="h-4 w-4" />
-                <span>{createLoading ? 'Creating FPC...' : 'Create FPC'}</span>
-              </button>
-            </div>
           </div>
         </div>
       )}

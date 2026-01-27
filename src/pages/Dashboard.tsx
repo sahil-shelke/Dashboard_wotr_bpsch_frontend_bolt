@@ -2,21 +2,22 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
-import { 
-  Building2, 
-  Users, 
-  FileText, 
+import {
+  Building2,
+  Users,
+  FileText,
   TrendingUp,
   AlertCircle,
   CheckSquare,
-  Clock
+  Clock,
+  Download
 } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 
 interface Stats {
   totalFPCs: number;
   pendingRequests: number;
   approvedRequests: number;
-  activeProjects: number;
   totalShareholders?: number;
   totalCEOs?: number;
   totalLicenses?: number;
@@ -39,13 +40,17 @@ interface StateFPOAgriStats {
   total_turnover: number;
 }
 
+interface CommodityTurnover {
+  commodity: string;
+  turnover: number;
+}
+
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const [stats, setStats] = useState<Stats>({
     totalFPCs: 0,
     pendingRequests: 0,
     approvedRequests: 0,
-    activeProjects: 0,
     totalShareholders: 0,
     totalCEOs: 0,
     totalLicenses: 0,
@@ -59,17 +64,31 @@ const Dashboard: React.FC = () => {
   const [selectedStateCode, setSelectedStateCode] = useState<string>('');
   const [selectedStateFyYear, setSelectedStateFyYear] = useState<string>('');
   const [loadingStateStats, setLoadingStateStats] = useState(false);
+  const [commodityTurnover, setCommodityTurnover] = useState<CommodityTurnover[]>([]);
+  const [loadingCommodityTurnover, setLoadingCommodityTurnover] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
+
+  const COMMODITIES = [
+    'Input',
+    'Cotton',
+    'Maize',
+    'Wheat',
+    'Rice',
+    'Soybean',
+    'Pulses',
+    'Vegetables',
+    'Fruits',
+    'Other'
+  ];
+
+  const getCurrentFY = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    return now.getMonth() < 3 ? `${year - 1}-${year}` : `${year}-${year + 1}`;
+  };
 
   useEffect(() => {
     fetchDashboardStats();
-
-    const getCurrentFY = () => {
-      const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth();
-      const fyStartYear = currentMonth < 3 ? currentYear - 1 : currentYear;
-      return `${fyStartYear}-${(fyStartYear + 1).toString()}`;
-    };
 
     if (user?.role === 'agribusiness_officer') {
       setSelectedYear(getCurrentFY());
@@ -89,6 +108,12 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     if (user?.role === 'super_admin' && selectedStateCode && selectedStateFyYear) {
       fetchStateAgriStats(selectedStateCode, selectedStateFyYear);
+    }
+  }, [selectedStateCode, selectedStateFyYear, user]);
+
+  useEffect(() => {
+    if (user?.role === 'super_admin' && selectedStateCode && selectedStateFyYear) {
+      fetchAllCommodityTurnover(selectedStateFyYear, selectedStateCode);
     }
   }, [selectedStateCode, selectedStateFyYear, user]);
 
@@ -143,6 +168,87 @@ const fetchStateAgriStats = async (stateCode: string, fyYear: string) => {
     setStateAgriStats([]);
   } finally {
     setLoadingStateStats(false);
+  }
+};
+
+const fetchAllCommodityTurnover = async (
+  fyYear: string,
+  stateCode: string
+) => {
+  setLoadingCommodityTurnover(true);
+  try {
+    const token = localStorage.getItem('token');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+    const requests = COMMODITIES.map(commodity =>
+      axios
+        .get('/api/dashboard/commodity-turnover', {
+          headers,
+          params: {
+            commodity,
+            fy_year: fyYear,
+            state_code: stateCode
+          }
+        })
+        .then(res => ({
+          commodity,
+          turnover: res.data.total_turnover || 0
+        }))
+        .catch(() => ({
+          commodity,
+          turnover: 0
+        }))
+    );
+
+    const results = await Promise.all(requests);
+
+    setCommodityTurnover(
+      results.filter(r => r.turnover > 0)
+    );
+  } catch {
+    toast.error('Failed to load commodity turnover');
+    setCommodityTurnover([]);
+  } finally {
+    setLoadingCommodityTurnover(false);
+  }
+};
+
+const handleExportExcel = async () => {
+  if (!selectedStateCode || !selectedStateFyYear) {
+    toast.error('Please select both state and financial year');
+    return;
+  }
+
+  setExportingExcel(true);
+  try {
+    const token = localStorage.getItem('token');
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+    const response = await axios.get('/api/dashboard/state-wise-excel', {
+      headers,
+      params: {
+        state_code: selectedStateCode,
+        fy_year: selectedStateFyYear
+      },
+      responseType: 'blob'
+    });
+
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    const stateName = INDIAN_STATES.find(s => s.code === selectedStateCode)?.name || 'State';
+    link.setAttribute('download', `${stateName}_${selectedStateFyYear}_Report.xlsx`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+
+    toast.success('Excel file downloaded successfully');
+  } catch (error) {
+    console.error('Error exporting excel:', error);
+    toast.error('Failed to export Excel file');
+  } finally {
+    setExportingExcel(false);
   }
 };
 
@@ -212,7 +318,6 @@ const fetchDashboardStats = async () => {
         totalFPCs,
         pendingRequests,
         approvedRequests,
-        activeProjects: user?.role === 'super_admin' ? 45 : user?.role === 'regional_manager' ? 25 : 4, // Mock data for now
         ...additionalStats
       });
     } catch (error) {
@@ -221,8 +326,7 @@ const fetchDashboardStats = async () => {
       setStats({
         totalFPCs: user?.role === 'super_admin' ? 70 : user?.role === 'regional_manager' ? 30 : 5,
         pendingRequests: user?.role === 'super_admin' ? 12 : 3,
-        approvedRequests: user?.role === 'super_admin' ? 58 : 27,
-        activeProjects: user?.role === 'super_admin' ? 45 : user?.role === 'regional_manager' ? 25 : 4
+        approvedRequests: user?.role === 'super_admin' ? 58 : 27
       });
     } finally {
       setLoading(false);
@@ -285,14 +389,6 @@ const fetchDashboardStats = async () => {
         }
       );
     }
-
-    baseCards.push({
-      title: 'Active Projects',
-      value: stats.activeProjects,
-      icon: TrendingUp,
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-100'
-    });
 
     return baseCards;
   };
@@ -396,6 +492,23 @@ const INDIAN_STATES = [
                   <option key={year} value={year}>{year}</option>
                 ))}
               </select>
+              <button
+                onClick={handleExportExcel}
+                disabled={!selectedStateCode || !selectedStateFyYear || exportingExcel}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all"
+              >
+                {exportingExcel ? (
+                  <>
+                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                    <span>Exporting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4" />
+                    <span>Export Excel</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
 
@@ -486,6 +599,107 @@ const INDIAN_STATES = [
                     </tr>
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Commodity-wise Turnover Section */}
+      {user?.role === 'super_admin' && (
+        <div className="card p-6">
+          <h2 className="text-lg font-semibold mb-4">Commodity-wise Turnover</h2>
+
+          {loadingCommodityTurnover ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin h-8 w-8 border-b-2 border-blue-600 rounded-full" />
+            </div>
+          ) : !selectedStateCode || !selectedStateFyYear ? (
+            <div className="text-center py-12">
+              <TrendingUp className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Select State and Financial Year</h3>
+              <p className="text-gray-600">Use the filters above to view commodity turnover data</p>
+            </div>
+          ) : commodityTurnover.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              No data available for the selected filters
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Pie Chart */}
+              <div className="bg-gray-50 border rounded-lg p-6">
+                <h3 className="text-md font-semibold text-gray-900 mb-4">Distribution by Commodity</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={commodityTurnover}
+                      dataKey="turnover"
+                      nameKey="commodity"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={100}
+                      label={({ commodity, percent }) =>
+                        `${commodity} ${(percent * 100).toFixed(1)}%`
+                      }
+                    >
+                      {commodityTurnover.map((entry, index) => {
+                        const colors = [
+                          '#3B82F6', '#10B981', '#F59E0B', '#EF4444',
+                          '#8B5CF6', '#EC4899', '#14B8A6', '#F97316',
+                          '#06B6D4', '#84CC16'
+                        ];
+                        return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
+                      })}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value: number) => `₹${value.toLocaleString()}`}
+                    />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Data Table */}
+              <div className="bg-gray-50 border rounded-lg p-6">
+                <h3 className="text-md font-semibold text-gray-900 mb-4">Turnover Details</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full border">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="border p-2 text-left text-sm font-bold">Commodity</th>
+                        <th className="border p-2 text-right text-sm font-bold">Turnover</th>
+                        <th className="border p-2 text-right text-sm font-bold">%</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {commodityTurnover.map(row => {
+                        const totalTurnover = commodityTurnover.reduce((sum, c) => sum + c.turnover, 0);
+                        const percent = totalTurnover
+                          ? ((row.turnover / totalTurnover) * 100).toFixed(2)
+                          : '0.00';
+
+                        return (
+                          <tr key={row.commodity} className="hover:bg-gray-100">
+                            <td className="border p-2 text-sm">{row.commodity}</td>
+                            <td className="border p-2 text-right text-sm">
+                              ₹{row.turnover.toLocaleString()}
+                            </td>
+                            <td className="border p-2 text-right text-sm">
+                              {percent}%
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      <tr className="bg-blue-100 font-bold">
+                        <td className="border p-2 text-sm">Total</td>
+                        <td className="border p-2 text-right text-sm">
+                          ₹{commodityTurnover.reduce((sum, c) => sum + c.turnover, 0).toLocaleString()}
+                        </td>
+                        <td className="border p-2 text-right text-sm">100%</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}

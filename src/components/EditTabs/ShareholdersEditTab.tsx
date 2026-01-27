@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { Users, Edit, Save, X, Plus } from 'lucide-react';
+import { Users, Edit, Save, X, Plus, Upload, FileSpreadsheet } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 interface ShareholderFormData {
   fpo_id: number;
@@ -39,6 +40,10 @@ const ShareholdersEditTab: React.FC<ShareholdersEditTabProps> = ({ fpoId }) => {
   const [originalData, setOriginalData] = useState<Shareholder | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { register, handleSubmit, reset, watch, formState: { errors, dirtyFields } } = useForm<ShareholderFormData>({
     defaultValues: {
@@ -160,6 +165,85 @@ const ShareholdersEditTab: React.FC<ShareholdersEditTabProps> = ({ fpoId }) => {
     }
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    if (!['xlsx', 'xls', 'csv'].includes(fileExtension || '')) {
+      toast.error('Please upload a valid Excel (.xlsx, .xls) or CSV file');
+      return;
+    }
+
+    setSelectedFile(file);
+  };
+
+  const handleBulkUpload = async () => {
+    if (!selectedFile) {
+      toast.error('Please select a file first');
+      return;
+    }
+
+    setIsUploading(true);
+    const token = localStorage.getItem('token');
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+
+    try {
+      const response = await axios.post(
+        `/api/shareholder/bulk-upload/${fpoId}`,
+        formData,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+
+      toast.success(response.data?.message || 'Shareholders uploaded successfully!');
+      setShowBulkUpload(false);
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      fetchShareholders();
+    } catch (error: any) {
+      toast.error(error.response?.data?.detail || 'Failed to upload shareholders');
+      console.error('Bulk upload error:', error);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const downloadTemplate = () => {
+    const template = [
+      {
+        member_name: 'John Doe',
+        member_phone_number: '9876543210',
+        gender: 'm',
+        date_of_birth: '1980-01-15',
+        date_of_share_taken: '2023-01-01',
+        sharemoney_deposited_by_member: 1000,
+        number_of_share_alloted_amount: 10,
+        folio_share_distinctive_no: 'F001',
+        status_of_member: 'Active',
+        land_holding_of_shares_in_acres: 5.5,
+        share_transfer: '',
+        position_of_member: 'Member',
+        is_scst: false,
+        education_qualification: 'graduate',
+        din: '',
+        date_of_joining: ''
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(template);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Shareholders');
+    XLSX.writeFile(workbook, 'shareholders_template.xlsx');
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -179,8 +263,16 @@ const ShareholdersEditTab: React.FC<ShareholdersEditTabProps> = ({ fpoId }) => {
         <div className="flex items-center space-x-3">
           <span className="text-sm text-gray-500">{shareholders.length} members</span>
           <button
-            onClick={handleAddNew}
+            onClick={() => setShowBulkUpload(!showBulkUpload)}
             disabled={showAddForm || editingId !== null}
+            className="btn-secondary flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Bulk Upload
+          </button>
+          <button
+            onClick={handleAddNew}
+            disabled={showAddForm || editingId !== null || showBulkUpload}
             className="btn-primary flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -188,6 +280,86 @@ const ShareholdersEditTab: React.FC<ShareholdersEditTabProps> = ({ fpoId }) => {
           </button>
         </div>
       </div>
+
+      {showBulkUpload && (
+        <div className="border border-blue-200 bg-blue-50 rounded-lg p-6 mb-4">
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="font-semibold text-gray-900 flex items-center">
+              <FileSpreadsheet className="h-5 w-5 mr-2" />
+              Bulk Upload Shareholders
+            </h4>
+            <button
+              onClick={() => {
+                setShowBulkUpload(false);
+                setSelectedFile(null);
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = '';
+                }
+              }}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-white rounded-lg p-4 border border-blue-200">
+              <p className="text-sm text-gray-700 mb-3">
+                Upload an Excel (.xlsx, .xls) or CSV file with shareholder data. The file will be processed on the server.
+              </p>
+              <button
+                onClick={downloadTemplate}
+                className="btn-secondary text-sm flex items-center"
+              >
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Download Template
+              </button>
+            </div>
+
+            <div className="bg-white rounded-lg p-4 border border-blue-200">
+              <label className="block">
+                <span className="text-sm font-medium text-gray-700 mb-2 block">Select File</span>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  onChange={handleFileSelect}
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+              </label>
+              {selectedFile && (
+                <p className="text-sm text-green-700 mt-2 flex items-center">
+                  <FileSpreadsheet className="h-4 w-4 mr-1" />
+                  Selected: {selectedFile.name}
+                </p>
+              )}
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={handleBulkUpload}
+                disabled={!selectedFile || isUploading}
+                className="btn-primary flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                {isUploading ? 'Uploading...' : 'Upload File'}
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedFile(null);
+                  if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                  }
+                }}
+                disabled={isUploading || !selectedFile}
+                className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAddForm && (
         <div className="border border-green-200 bg-green-50 rounded-lg p-4 mb-4">
