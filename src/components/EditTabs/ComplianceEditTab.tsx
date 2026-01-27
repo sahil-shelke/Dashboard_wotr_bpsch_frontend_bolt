@@ -7,12 +7,19 @@ import { FileCheck, Edit, Save, X, Plus, Eye, FileText, Image as ImageIcon } fro
 interface ComplianceFormData {
   fpo_id: number;
   audit_report_completion: 'In Process' | 'Completed' | 'Not Started';
+  audit_report_url?: string | null;
   dir_3_kyc: 'In Process' | 'Completed' | 'Not Started';
+  dir_3_kyc_url?: string | null;
   agm: 'In Process' | 'Completed' | 'Not Started';
+  agm_url?: string | null;
   form_adt_1: 'In Process' | 'Completed' | 'Not Started';
+  form_adt_1_url?: string | null;
   form_aoc_4: 'In Process' | 'Completed' | 'Not Started';
+  form_aoc_4_url?: string | null;
   mgt_7: 'In Process' | 'Completed' | 'Not Started';
+  mgt_7_url?: string | null;
   mgt_14: 'In Process' | 'Completed' | 'Not Started';
+  mgt_14_url?: string | null;
   penalties?: string;
   semiannual: 'h1' | 'h2';
   fy_year: string;
@@ -113,23 +120,45 @@ const ComplianceEditTab: React.FC<ComplianceEditTabProps> = ({ fpoId }) => {
 
   const renderDocumentField = (
     fieldName: keyof ComplianceFormData,
+    urlFieldName: keyof ComplianceFormData,
     label: string,
     isRequired: boolean
   ) => {
     const file = watch(fieldName as any)?.[0];
+    const existingUrl = watch(urlFieldName as any);
+
     return (
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
           {label} {isRequired && <span className="text-red-500">*</span>}
         </label>
+
+        {existingUrl && !file && (
+          <div className="mb-2 flex items-center justify-between p-2 bg-blue-50 border border-blue-300 rounded">
+            <div className="flex items-center space-x-2">
+              <FileText className="h-5 w-5 text-blue-600" />
+              <span className="text-sm text-gray-700">Current Document</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => window.open(existingUrl, '_blank')}
+              className="p-1 hover:bg-blue-100 rounded-full transition-colors"
+              title="View current document"
+            >
+              <Eye className="h-4 w-4 text-blue-600" />
+            </button>
+          </div>
+        )}
+
         <input
           type="file"
           {...register(fieldName as any, {
-            required: isRequired ? `Document required when status is Completed` : false
+            required: isRequired && !existingUrl ? `Document required when status is Completed` : false
           })}
           className="form-input w-full"
           accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
         />
+
         {file && (
           <div className="mt-2 flex items-center justify-between p-2 bg-green-50 border border-green-300 rounded">
             <div className="flex items-center space-x-2">
@@ -140,12 +169,13 @@ const ComplianceEditTab: React.FC<ComplianceEditTabProps> = ({ fpoId }) => {
               type="button"
               onClick={() => openPreview(file)}
               className="p-1 hover:bg-green-100 rounded-full transition-colors"
-              title="Preview document"
+              title="Preview new document"
             >
               <Eye className="h-4 w-4 text-blue-600" />
             </button>
           </div>
         )}
+
         {errors[fieldName] && (
           <p className="text-xs text-red-600 mt-1">{(errors[fieldName] as any)?.message}</p>
         )}
@@ -321,7 +351,7 @@ const ComplianceEditTab: React.FC<ComplianceEditTabProps> = ({ fpoId }) => {
           </select>
         </div>
 
-        {renderDocumentField('audit_report_document', 'Audit Report Document', watchedStatuses.audit_report_completion === 'Completed')}
+        {renderDocumentField('audit_report_document', 'audit_report_url', 'Audit Report Document', watchedStatuses.audit_report_completion === 'Completed')}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">DIR-3 KYC</label>
@@ -332,7 +362,7 @@ const ComplianceEditTab: React.FC<ComplianceEditTabProps> = ({ fpoId }) => {
           </select>
         </div>
 
-        {renderDocumentField('dir_3_kyc_document', 'DIR-3 KYC Document', watchedStatuses.dir_3_kyc === 'Completed')}
+        {renderDocumentField('dir_3_kyc_document', 'dir_3_kyc_url', 'DIR-3 KYC Document', watchedStatuses.dir_3_kyc === 'Completed')}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">AGM</label>
@@ -343,7 +373,7 @@ const ComplianceEditTab: React.FC<ComplianceEditTabProps> = ({ fpoId }) => {
           </select>
         </div>
 
-        {renderDocumentField('agm_document', 'AGM Document', watchedStatuses.agm === 'Completed')}
+        {renderDocumentField('agm_document', 'agm_url', 'AGM Document', watchedStatuses.agm === 'Completed')}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Form ADT-1</label>
@@ -354,7 +384,7 @@ const ComplianceEditTab: React.FC<ComplianceEditTabProps> = ({ fpoId }) => {
           </select>
         </div>
 
-        {renderDocumentField('form_adt_1_document', 'Form ADT-1 Document', watchedStatuses.form_adt_1 === 'Completed')}
+        {renderDocumentField('form_adt_1_document', 'form_adt_1_url', 'Form ADT-1 Document', watchedStatuses.form_adt_1 === 'Completed')}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Form AOC-4</label>
@@ -365,7 +395,7 @@ const ComplianceEditTab: React.FC<ComplianceEditTabProps> = ({ fpoId }) => {
           </select>
         </div>
 
-        {renderDocumentField('form_aoc_4_document', 'Form AOC-4 Document', watchedStatuses.form_aoc_4 === 'Completed')}
+        {renderDocumentField('form_aoc_4_document', 'form_aoc_4_url', 'Form AOC-4 Document', watchedStatuses.form_aoc_4 === 'Completed')}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">MGT-7</label>
@@ -376,7 +406,7 @@ const ComplianceEditTab: React.FC<ComplianceEditTabProps> = ({ fpoId }) => {
           </select>
         </div>
 
-        {renderDocumentField('mgt_7_document', 'MGT-7 Document', watchedStatuses.mgt_7 === 'Completed')}
+        {renderDocumentField('mgt_7_document', 'mgt_7_url', 'MGT-7 Document', watchedStatuses.mgt_7 === 'Completed')}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">MGT-14</label>
@@ -387,7 +417,7 @@ const ComplianceEditTab: React.FC<ComplianceEditTabProps> = ({ fpoId }) => {
           </select>
         </div>
 
-        {renderDocumentField('mgt_14_document', 'MGT-14 Document', watchedStatuses.mgt_14 === 'Completed')}
+        {renderDocumentField('mgt_14_document', 'mgt_14_url', 'MGT-14 Document', watchedStatuses.mgt_14 === 'Completed')}
       </div>
 
       <div className="grid grid-cols-1 gap-4">
@@ -476,82 +506,155 @@ const ComplianceEditTab: React.FC<ComplianceEditTabProps> = ({ fpoId }) => {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
                       <p className="text-gray-500">Audit Report</p>
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        compliance.audit_report_completion === 'Completed' ? 'bg-green-100 text-green-800' :
-                        compliance.audit_report_completion === 'In Process' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {compliance.audit_report_completion}
-                      </span>
+                      <div className="flex items-center space-x-2">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          compliance.audit_report_completion === 'Completed' ? 'bg-green-100 text-green-800' :
+                          compliance.audit_report_completion === 'In Process' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {compliance.audit_report_completion}
+                        </span>
+                        {compliance.audit_report_url && (
+                          <button
+                            onClick={() => window.open(compliance.audit_report_url!, '_blank')}
+                            className="p-1 hover:bg-gray-100 rounded"
+                            title="View document"
+                          >
+                            <Eye className="h-4 w-4 text-blue-600" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <div>
                       <p className="text-gray-500">DIR-3 KYC</p>
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        compliance.dir_3_kyc === 'Completed' ? 'bg-green-100 text-green-800' :
-                        compliance.dir_3_kyc === 'In Process' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {compliance.dir_3_kyc}
-                      </span>
+                      <div className="flex items-center space-x-2">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          compliance.dir_3_kyc === 'Completed' ? 'bg-green-100 text-green-800' :
+                          compliance.dir_3_kyc === 'In Process' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {compliance.dir_3_kyc}
+                        </span>
+                        {compliance.dir_3_kyc_url && (
+                          <button
+                            onClick={() => window.open(compliance.dir_3_kyc_url!, '_blank')}
+                            className="p-1 hover:bg-gray-100 rounded"
+                            title="View document"
+                          >
+                            <Eye className="h-4 w-4 text-blue-600" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <div>
                       <p className="text-gray-500">AGM</p>
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        compliance.agm === 'Completed' ? 'bg-green-100 text-green-800' :
-                        compliance.agm === 'In Process' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {compliance.agm}
-                      </span>
+                      <div className="flex items-center space-x-2">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          compliance.agm === 'Completed' ? 'bg-green-100 text-green-800' :
+                          compliance.agm === 'In Process' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {compliance.agm}
+                        </span>
+                        {compliance.agm_url && (
+                          <button
+                            onClick={() => window.open(compliance.agm_url!, '_blank')}
+                            className="p-1 hover:bg-gray-100 rounded"
+                            title="View document"
+                          >
+                            <Eye className="h-4 w-4 text-blue-600" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <div>
                       <p className="text-gray-500">Form ADT-1</p>
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        compliance.form_adt_1 === 'Completed' ? 'bg-green-100 text-green-800' :
-                        compliance.form_adt_1 === 'In Process' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {compliance.form_adt_1}
-                      </span>
+                      <div className="flex items-center space-x-2">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          compliance.form_adt_1 === 'Completed' ? 'bg-green-100 text-green-800' :
+                          compliance.form_adt_1 === 'In Process' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {compliance.form_adt_1}
+                        </span>
+                        {compliance.form_adt_1_url && (
+                          <button
+                            onClick={() => window.open(compliance.form_adt_1_url!, '_blank')}
+                            className="p-1 hover:bg-gray-100 rounded"
+                            title="View document"
+                          >
+                            <Eye className="h-4 w-4 text-blue-600" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <div>
                       <p className="text-gray-500">Form AOC-4</p>
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        compliance.form_aoc_4 === 'Completed' ? 'bg-green-100 text-green-800' :
-                        compliance.form_aoc_4 === 'In Process' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {compliance.form_aoc_4}
-                      </span>
+                      <div className="flex items-center space-x-2">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          compliance.form_aoc_4 === 'Completed' ? 'bg-green-100 text-green-800' :
+                          compliance.form_aoc_4 === 'In Process' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {compliance.form_aoc_4}
+                        </span>
+                        {compliance.form_aoc_4_url && (
+                          <button
+                            onClick={() => window.open(compliance.form_aoc_4_url!, '_blank')}
+                            className="p-1 hover:bg-gray-100 rounded"
+                            title="View document"
+                          >
+                            <Eye className="h-4 w-4 text-blue-600" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <div>
                       <p className="text-gray-500">MGT-7</p>
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        compliance.mgt_7 === 'Completed' ? 'bg-green-100 text-green-800' :
-                        compliance.mgt_7 === 'In Process' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {compliance.mgt_7}
-                      </span>
+                      <div className="flex items-center space-x-2">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          compliance.mgt_7 === 'Completed' ? 'bg-green-100 text-green-800' :
+                          compliance.mgt_7 === 'In Process' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {compliance.mgt_7}
+                        </span>
+                        {compliance.mgt_7_url && (
+                          <button
+                            onClick={() => window.open(compliance.mgt_7_url!, '_blank')}
+                            className="p-1 hover:bg-gray-100 rounded"
+                            title="View document"
+                          >
+                            <Eye className="h-4 w-4 text-blue-600" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <div>
                       <p className="text-gray-500">MGT-14</p>
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        compliance.mgt_14 === 'Completed' ? 'bg-green-100 text-green-800' :
-                        compliance.mgt_14 === 'In Process' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {compliance.mgt_14}
-                      </span>
+                      <div className="flex items-center space-x-2">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          compliance.mgt_14 === 'Completed' ? 'bg-green-100 text-green-800' :
+                          compliance.mgt_14 === 'In Process' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {compliance.mgt_14}
+                        </span>
+                        {compliance.mgt_14_url && (
+                          <button
+                            onClick={() => window.open(compliance.mgt_14_url!, '_blank')}
+                            className="p-1 hover:bg-gray-100 rounded"
+                            title="View document"
+                          >
+                            <Eye className="h-4 w-4 text-blue-600" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <div>
                       <p className="text-gray-500">Penalties</p>
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        compliance.penalties === 'Completed' ? 'bg-green-100 text-green-800' :
-                        compliance.penalties === 'In Process' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {compliance.penalties}
+                      <span className="text-sm text-gray-700">
+                        {compliance.penalties || 'N/A'}
                       </span>
                     </div>
                   </div>

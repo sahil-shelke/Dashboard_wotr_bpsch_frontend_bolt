@@ -6,14 +6,22 @@ import toast from 'react-hot-toast';
 import { Save, CheckSquare, Plus, Eye, FileText, Image as ImageIcon, X } from 'lucide-react';
 
 interface ComplianceFormData {
+  id?: number;
   fpo_id: number;
   audit_report_completion: 'In Process' | 'Completed' | 'Not Started';
+  audit_report_url?: string | null;
   dir_3_kyc: 'In Process' | 'Completed' | 'Not Started';
+  dir_3_kyc_url?: string | null;
   agm: 'In Process' | 'Completed' | 'Not Started';
+  agm_url?: string | null;
   form_adt_1: 'In Process' | 'Completed' | 'Not Started';
+  form_adt_1_url?: string | null;
   form_aoc_4: 'In Process' | 'Completed' | 'Not Started';
+  form_aoc_4_url?: string | null;
   mgt_7: 'In Process' | 'Completed' | 'Not Started';
+  mgt_7_url?: string | null;
   mgt_14: 'In Process' | 'Completed' | 'Not Started';
+  mgt_14_url?: string | null;
   penalties?: string;
   semiannual: 'h1' | 'h2';
   fy_year: string;
@@ -175,23 +183,45 @@ const ComplianceForm: React.FC = () => {
 
   const renderDocumentField = (
     fieldName: keyof ComplianceFormData,
+    urlFieldName: keyof ComplianceFormData,
     label: string,
     isRequired: boolean
   ) => {
     const file = watch(fieldName as any)?.[0];
+    const existingUrl = watch(urlFieldName as any);
+
     return (
       <div>
         <label className="form-label">
           {label} {isRequired && <span className="text-red-500">*</span>}
         </label>
+
+        {existingUrl && !file && (
+          <div className="mb-2 flex items-center justify-between p-2 bg-blue-50 border border-blue-300 rounded">
+            <div className="flex items-center space-x-2">
+              <FileText className="h-5 w-5 text-blue-600" />
+              <span className="text-sm text-gray-700">Current Document</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => window.open(existingUrl, '_blank')}
+              className="p-1 hover:bg-blue-100 rounded-full transition-colors"
+              title="View current document"
+            >
+              <Eye className="h-4 w-4 text-blue-600" />
+            </button>
+          </div>
+        )}
+
         <input
           type="file"
           {...register(fieldName as any, {
-            required: isRequired ? `Document required when status is Completed` : false
+            required: isRequired && !existingUrl ? `Document required when status is Completed` : false
           })}
           className="form-input"
           accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
         />
+
         {file && (
           <div className="mt-2 flex items-center justify-between p-2 bg-green-50 border border-green-300 rounded">
             <div className="flex items-center space-x-2">
@@ -202,12 +232,13 @@ const ComplianceForm: React.FC = () => {
               type="button"
               onClick={() => openPreview(file)}
               className="p-1 hover:bg-green-100 rounded-full transition-colors"
-              title="Preview document"
+              title="Preview new document"
             >
               <Eye className="h-4 w-4 text-blue-600" />
             </button>
           </div>
         )}
+
         {errors[fieldName] && (
           <p className="text-red-500 text-sm">{(errors[fieldName] as any)?.message}</p>
         )}
@@ -381,7 +412,7 @@ const ComplianceForm: React.FC = () => {
                   {errors.audit_report_completion && <p className="text-red-500 text-sm">{errors.audit_report_completion.message}</p>}
                 </div>
 
-                {renderDocumentField('audit_report_document', 'Audit Report Document', watchedStatuses.audit_report_completion === 'Completed')}
+                {renderDocumentField('audit_report_document', 'audit_report_url', 'Audit Report Document', watchedStatuses.audit_report_completion === 'Completed')}
 
                 <div>
                   <label className="form-label">DIR-3 KYC *</label>
@@ -394,7 +425,7 @@ const ComplianceForm: React.FC = () => {
                   {errors.dir_3_kyc && <p className="text-red-500 text-sm">{errors.dir_3_kyc.message}</p>}
                 </div>
 
-                {renderDocumentField('dir_3_kyc_document', 'DIR-3 KYC Document', watchedStatuses.dir_3_kyc === 'Completed')}
+                {renderDocumentField('dir_3_kyc_document', 'dir_3_kyc_url', 'DIR-3 KYC Document', watchedStatuses.dir_3_kyc === 'Completed')}
 
                 <div>
                   <label className="form-label">AGM *</label>
@@ -407,7 +438,7 @@ const ComplianceForm: React.FC = () => {
                   {errors.agm && <p className="text-red-500 text-sm">{errors.agm.message}</p>}
                 </div>
 
-                {renderDocumentField('agm_document', 'AGM Document', watchedStatuses.agm === 'Completed')}
+                {renderDocumentField('agm_document', 'agm_url', 'AGM Document', watchedStatuses.agm === 'Completed')}
 
                 <div>
                   <label className="form-label">Form ADT-1 *</label>
@@ -420,7 +451,7 @@ const ComplianceForm: React.FC = () => {
                   {errors.form_adt_1 && <p className="text-red-500 text-sm">{errors.form_adt_1.message}</p>}
                 </div>
 
-                {renderDocumentField('form_adt_1_document', 'Form ADT-1 Document', watchedStatuses.form_adt_1 === 'Completed')}
+                {renderDocumentField('form_adt_1_document', 'form_adt_1_url', 'Form ADT-1 Document', watchedStatuses.form_adt_1 === 'Completed')}
 
                 <div>
                   <label className="form-label">Form AOC-4 *</label>
@@ -433,7 +464,7 @@ const ComplianceForm: React.FC = () => {
                   {errors.form_aoc_4 && <p className="text-red-500 text-sm">{errors.form_aoc_4.message}</p>}
                 </div>
 
-                {renderDocumentField('form_aoc_4_document', 'Form AOC-4 Document', watchedStatuses.form_aoc_4 === 'Completed')}
+                {renderDocumentField('form_aoc_4_document', 'form_aoc_4_url', 'Form AOC-4 Document', watchedStatuses.form_aoc_4 === 'Completed')}
 
                 <div>
                   <label className="form-label">MGT-7 *</label>
@@ -446,7 +477,7 @@ const ComplianceForm: React.FC = () => {
                   {errors.mgt_7 && <p className="text-red-500 text-sm">{errors.mgt_7.message}</p>}
                 </div>
 
-                {renderDocumentField('mgt_7_document', 'MGT-7 Document', watchedStatuses.mgt_7 === 'Completed')}
+                {renderDocumentField('mgt_7_document', 'mgt_7_url', 'MGT-7 Document', watchedStatuses.mgt_7 === 'Completed')}
 
                 <div>
                   <label className="form-label">MGT-14 *</label>
@@ -459,7 +490,7 @@ const ComplianceForm: React.FC = () => {
                   {errors.mgt_14 && <p className="text-red-500 text-sm">{errors.mgt_14.message}</p>}
                 </div>
 
-                {renderDocumentField('mgt_14_document', 'MGT-14 Document', watchedStatuses.mgt_14 === 'Completed')}
+                {renderDocumentField('mgt_14_document', 'mgt_14_url', 'MGT-14 Document', watchedStatuses.mgt_14 === 'Completed')}
               </div>
 
               {/* Penalties Field */}
