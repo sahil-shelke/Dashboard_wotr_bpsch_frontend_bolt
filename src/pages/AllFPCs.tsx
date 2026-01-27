@@ -514,9 +514,9 @@ const uniqueStates = [...new Set(fpos.map(fpo => fpo.state_name))].filter(Boolea
                       setSelectedFPO(fpo);
                       setShowModal(true);
                     }}
-                    className="btn-secondary flex items-center space-x-2"
+                    className="btn-secondary flex items-center space-x-1"
                   >
-                    <Eye className="h-4 w-4" strokeWidth={2} />
+                    <Eye className="h-4 w-4" />
                     <span>View</span>
                   </button>
                   <button
@@ -524,16 +524,16 @@ const uniqueStates = [...new Set(fpos.map(fpo => fpo.state_name))].filter(Boolea
                       setSelectedFPO(fpo);
                       setShowEditModal(true);
                     }}
-                    className="btn-edit space-x-2"
+                    className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center space-x-1"
                   >
-                    <Edit className="h-4 w-4" strokeWidth={2} />
+                    <Edit className="h-4 w-4" />
                     <span>Edit</span>
                   </button>
                   <button
                     onClick={() => handleDelete(fpo.fpo_id)}
-                    className="btn-delete space-x-2"
+                    className="px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center space-x-1"
                   >
-                    <Trash2 className="h-4 w-4" strokeWidth={2} />
+                    <Trash2 className="h-4 w-4" />
                     <span>Delete</span>
                   </button>
                 </div>
