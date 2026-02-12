@@ -1,17 +1,45 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import path from "path"
+import tailwindcss from "@tailwindcss/vite"
+import { defineConfig } from "vite"
 
+// https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
-  server: {
-    allowedHosts: true,
-    proxy: {
-      '/api': 'http://localhost:8000',
+  plugins: [tailwindcss()],
+  build: {
+    outDir: "../app/dist",
+  },
+ server: {
+  proxy: {
+    "/api": {
+      target: "http://localhost:8000",
+      changeOrigin: true,
+      rewrite: (p) => p.replace(/^\/api/, ""),
+      configure: (proxy) => {
+        proxy.on("proxyReq", (_, req) => {
+          console.log(">>> PROXY:", req.url)
+        })
+      }
+    }
+  }
+}
+,
+  esbuild: {
+    loader: 'tsx',
+    include: /src\/.*\.[tj]sx?$/,
+    exclude: [],
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      loader: {
+        '.js': 'jsx',
+        '.ts': 'tsx',
+        '.tsx': 'tsx',
+      },
     },
   },
-  build: {outDir: '../app/dist'},
-  optimizeDeps: {
-    exclude: ['lucide-react'],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
   },
 })
-

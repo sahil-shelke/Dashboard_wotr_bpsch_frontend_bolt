@@ -1,72 +1,199 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast';
-import Layout from './components/Layout';
-import Dashboard from './pages/Dashboard';
-import Login from './pages/Login';
-import CreateFPCRequest from './pages/CreateFPCRequest';
-import ApprovalRequests from './pages/ApprovalRequests';
-import MyRequests from './pages/MyRequests';
-import CompleteProfile from './pages/CompleteProfile';
-import AllFPCs from './pages/AllFPCs';
-import FPOForm from './pages/FPOForm';
-import LicenseForm from './pages/LicenseForm';
-import FinancialForm from './pages/FinancialForm';
-import ComplianceForm from './pages/ComplianceForm';
-import RegionalManagers from './pages/RegionalManagers';
-import ProjectManagers from './pages/ProjectManagers';
-import PendingRequests from './pages/PendingRequests';
-import RejectedFPOs from './pages/RejectedFPOs';
-import { AuthProvider } from './contexts/AuthContext';
-import ShareholdersPage from './pages/ShareholdersPage';
-import StaffPage from './pages/StaffPage';
-import BoardOfDirectors from './pages/BoardOfDirectors';
-import TrainingsPage from './pages/TrainingsPage';  
-import DonorsPage from './pages/DonorsPage';
-import Agribusiness from './pages/Agribusiness';
-import AgribusinessOfficer from './pages/AgribusinessOfficer';
-import FacilitiesPage from './pages/FacilitiesPage';
-import Profile from './pages/Profile';
+import "./App.css";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { SidebarProvider } from "./components/ui/sidebar";
+import { AppSidebar } from "./components/app-sidebar";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "./components/ui/breadcrumb";
 
+import { Fragment, useEffect, useState } from "react";
 
-function App() {
+// PAGES
+import LoginPage from "./tabs/LoginPage";
+import MainDashboard from "./tabs/MainDashboard";
+import LandPreparation from "./tabs/LandPreparation";
+import IrrigationManagement from "./tabs/IrrigationManagement";
+import SeedSelectionTable from "./tabs/SeedSelection";
+import NutrientManagement from "./tabs/NutrientManagement";
+import WeedManagementTable from "./tabs/WeedManagement";
+import PestManagementTable from "./tabs/PestManagement";
+import HarvestingManagementTable from "./tabs/HarvestManagement";
+import SoilManagementTable from "./tabs/SoilMoistureManual";
+import PestObservationTable from "./tabs/PestSurvey";
+import DiseaseObservationTable from "./tabs/DiseaseSurvey";
+import PlantNutrients from "./tabs/PlantNutrients";
+import FarmerRecordsTable from "./tabs/Farmers";
+import SurveyorRecordsTable from "./tabs/Surveyors";
+import CropRegistrationTable from "./tabs/CropRegistrations";
+import SoilMoistureLiveTable from "./tabs/SoilMoistureSensor";
+import WeatherStationTable from "./tabs/DavisWeather";
+
+// ---------------------------------------------------
+//  SESSION VALIDATION USING TOKEN
+// ---------------------------------------------------
+function useSessionCheck() {
+  const [checking, setChecking] = useState(true);
+  const [verified, setVerified] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem("authToken");
+    const isAuthenticated = localStorage.getItem("isAuthenticated");
+
+    if (token && isAuthenticated === "true") {
+      setVerified(true);
+    } else {
+      setVerified(false);
+    }
+
+    setChecking(false);
+  }, []);
+
+  return { checking, verified };
+}
+
+// ---------------------------------------------------
+//  PROTECTED ROUTE WRAPPER
+// ---------------------------------------------------
+function Protected({ children }: any) {
+  const { checking, verified } = useSessionCheck();
+
+  if (checking) return <div className="p-6">Checking session...</div>;
+
+  if (!verified) return <Navigate to="/login" replace />;
+
+  return children;
+}
+
+// ---------------------------------------------------
+//  MAIN APP CONTENT + SIDEBAR + HEADER
+// ---------------------------------------------------
+function AppContent() {
+  const location = useLocation();
+
+  // Hide sidebar + header on login page
+  const hideLayout = location.pathname === "/login";
+
+  const getBreadcrumbs = () => {
+    const path = location.pathname;
+
+    if (path === "/")
+      return [{ label: "Summary", href: "/" }];
+
+    const segments = path.split("/").filter(Boolean);
+    const breadcrumbs = [{ label: "Summary", href: "/" }];
+
+    const pathMap: Record<string, string> = {
+      "land-preparation": "Land Preparation",
+      irrigation: "Irrigation Management",
+      "seed-selection": "Seed Selection",
+      "nutrient-management": "Nutrient Management",
+      "weed-management": "Weed Management",
+      "pest-management": "Pest Management",
+      "harvest-management": "Harvest Management",
+      "soil-moisture-manual": "Manual Readings",
+      "soil-moisture-sensor": "Sensor Data",
+      "pest-survey": "Pest Survey",
+      "disease-survey": "Disease Survey",
+      "plant-nutrients": "Plant Nutrients",
+      farmers: "Farmers",
+      surveyors: "Surveyors",
+      "crop-registrations": "Crop Registrations",
+      weather: "Weather Stations",
+    };
+
+    segments.forEach((segment, index) => {
+      const label =
+        pathMap[segment] ||
+        segment.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+      breadcrumbs.push({
+        label,
+        href: "/" + segments.slice(0, index + 1).join("/"),
+      });
+    });
+
+    return breadcrumbs;
+  };
+
+  const breadcrumbs = getBreadcrumbs();
+
+  // LOGIN PAGE (no layout)
+  if (hideLayout) {
+    return (
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+      </Routes>
+    );
+  }
+
+  // LOGGED IN LAYOUT
   return (
-    <AuthProvider>
-      <Router>
-        <div className="min-h-screen bg-gray-50">
-          <Toaster position="top-right" />
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/" element={<Layout />}>
-              <Route index element={<Dashboard />} />
-              <Route path="create-fpc" element={<CreateFPCRequest />} />
-              <Route path="approvals" element={<ApprovalRequests />} />
-              <Route path="my-requests" element={<MyRequests />} />
-              <Route path="complete-profile" element={<CompleteProfile />} />
-              <Route path="all-fpcs" element={<AllFPCs />} />
-              <Route path="fpo-form" element={<FPOForm />} />
-              <Route path="shareholder-form" element={<ShareholdersPage />} />
-              <Route path="fpo-staff" element={<StaffPage />} />
-              <Route path="license-form" element={<LicenseForm />} />
-              <Route path="financial-form" element={<FinancialForm />} />
-              <Route path="compliance-form" element={<ComplianceForm />} />
-              <Route path="regional-managers" element={<RegionalManagers />} />
-              <Route path="project-managers" element={<ProjectManagers />} />
-              <Route path="pending-requests" element={<PendingRequests />} />
-              <Route path="rejected-fpos" element={<RejectedFPOs />} />
-              <Route path="board-of-directors" element={<BoardOfDirectors />} />
-              <Route path="trainings" element={<TrainingsPage />} />
-              <Route path="donors" element={<DonorsPage />} />
-              <Route path="agribusiness" element={<Agribusiness />} />
-              <Route path="agribusiness-officer" element={<AgribusinessOfficer />} />
-              <Route path="facilities" element={<FacilitiesPage />} />
-              <Route path="profile" element={<Profile />} />
-            </Route>
-          </Routes>
-        </div>
-      </Router>
-    </AuthProvider>
+    <SidebarProvider defaultOpen={true} >
+      <AppSidebar className="min-w-[500px]" />
+
+      <div className="ml-64 w-[calc(100%-16rem)] h-screen flex flex-col">
+        
+        {/* TOP HEADER */}
+        <header className="flex h-16 items-center gap-2 bg-white border-b sticky top-0 px-6 z-10">
+          <Breadcrumb>
+            <BreadcrumbList>
+              {breadcrumbs.map((crumb, index) => (
+                <Fragment key={crumb.href}>
+                  {index > 0 && <BreadcrumbSeparator />}
+                  <BreadcrumbItem>
+                    {index === breadcrumbs.length - 1 ? (
+                      <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
+                    ) : (
+                      <BreadcrumbLink href={crumb.href}>{crumb.label}</BreadcrumbLink>
+                    )}
+                  </BreadcrumbItem>
+                </Fragment>
+              ))}
+            </BreadcrumbList>
+          </Breadcrumb>
+        </header>
+
+        {/* MAIN CONTENT */}
+        <main className="w-full bg-[#F5E9D4]/20 overflow-auto flex-2">
+          <div className="w-full p-6">
+            <Routes>
+              <Route path="/" element={<Protected><MainDashboard /></Protected>} />
+              <Route path="/land-preparation" element={<Protected><LandPreparation /></Protected>} />
+              <Route path="/irrigation" element={<Protected><IrrigationManagement /></Protected>} />
+              <Route path="/seed-selection" element={<Protected><SeedSelectionTable /></Protected>} />
+              <Route path="/nutrient-management" element={<Protected><NutrientManagement /></Protected>} />
+              <Route path="/weed-management" element={<Protected><WeedManagementTable /></Protected>} />
+              <Route path="/pest-management" element={<Protected><PestManagementTable /></Protected>} />
+              <Route path="/harvest-management" element={<Protected><HarvestingManagementTable /></Protected>} />
+              <Route path="/soil-moisture-manual" element={<Protected><SoilManagementTable /></Protected>} />
+              <Route path="/soil-moisture-sensor" element={<Protected><SoilMoistureLiveTable /></Protected>} />
+              <Route path="/pest-survey" element={<Protected><PestObservationTable /></Protected>} />
+              <Route path="/disease-survey" element={<Protected><DiseaseObservationTable /></Protected>} />
+              <Route path="/plant-nutrients" element={<Protected><PlantNutrients /></Protected>} />
+              <Route path="/farmers" element={<Protected><FarmerRecordsTable /></Protected>} />
+              <Route path="/surveyors" element={<Protected><SurveyorRecordsTable /></Protected>} />
+              <Route path="/crop-registrations" element={<Protected><CropRegistrationTable /></Protected>} />
+              <Route path="/weather" element={<Protected><WeatherStationTable /></Protected>} />
+
+              {/* fallback */}
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </div>
+        </main>
+
+      </div>
+    </SidebarProvider>
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
+  );
+}
