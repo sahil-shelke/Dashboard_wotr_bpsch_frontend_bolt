@@ -32,6 +32,7 @@ import SurveyorRecordsTable from "./tabs/Surveyors";
 import CropRegistrationTable from "./tabs/CropRegistrations";
 import SoilMoistureLiveTable from "./tabs/SoilMoistureSensor";
 import WeatherStationTable from "./tabs/DavisWeather";
+import SoilTestingReportTable from "./tabs/SoilTestingReport";
 
 // ---------------------------------------------------
 //  SESSION VALIDATION USING TOKEN
@@ -104,6 +105,7 @@ function AppContent() {
       surveyors: "Surveyors",
       "crop-registrations": "Crop Registrations",
       weather: "Weather Stations",
+      "soil-testing-report": "Soil Testing Report",
     };
 
     segments.forEach((segment, index) => {
@@ -178,6 +180,7 @@ function AppContent() {
               <Route path="/surveyors" element={<Protected><SurveyorRecordsTable /></Protected>} />
               <Route path="/crop-registrations" element={<Protected><CropRegistrationTable /></Protected>} />
               <Route path="/weather" element={<Protected><WeatherStationTable /></Protected>} />
+              <Route path="/soil-testing-report" element={<Protected><SoilTestingReportTable /></Protected>} />
 
               {/* fallback */}
               <Route path="*" element={<Navigate to="/" />} />

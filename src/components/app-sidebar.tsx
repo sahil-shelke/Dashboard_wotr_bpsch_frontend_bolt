@@ -66,6 +66,7 @@ const navData = {
       items: [
         { title: "Chlorophyll Readings", url: "/plant-nutrients" },
         { title: "Soil Readings", url: "/soil-moisture-manual" },
+        { title: "Soil Testing Report", url: "/soil-testing-report" },
       ],
     },
     {
