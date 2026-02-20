@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Loader2, AlertCircle, CheckCircle } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle, MapPin, User, Mail, Phone, Lock, X } from 'lucide-react';
+import { locationApi } from '../services/locationApi';
+import { State, District, Block } from '../types/location';
 
 interface SupervisorFormData {
   full_name: string;
@@ -9,7 +11,7 @@ interface SupervisorFormData {
   phone_number: string;
   state_code: string;
   district_code: string;
-  block_codes: string;
+  block_codes: string[];
 }
 
 export const AddSupervisorPage = () => {
@@ -21,7 +23,7 @@ export const AddSupervisorPage = () => {
     phone_number: '',
     state_code: '',
     district_code: '',
-    block_codes: '',
+    block_codes: [],
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<{
@@ -29,13 +31,96 @@ export const AddSupervisorPage = () => {
     text: string;
   } | null>(null);
 
+  const [states, setStates] = useState<State[]>([]);
+  const [districts, setDistricts] = useState<District[]>([]);
+  const [blocks, setBlocks] = useState<Block[]>([]);
+  const [loadingStates, setLoadingStates] = useState(false);
+  const [loadingDistricts, setLoadingDistricts] = useState(false);
+  const [loadingBlocks, setLoadingBlocks] = useState(false);
+
+  useEffect(() => {
+    if (token) {
+      loadStates();
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (formData.state_code && token) {
+      loadDistricts(formData.state_code);
+      setFormData((prev) => ({ ...prev, district_code: '', block_codes: [] }));
+      setBlocks([]);
+    }
+  }, [formData.state_code]);
+
+  useEffect(() => {
+    if (formData.state_code && formData.district_code && token) {
+      loadBlocks(formData.state_code, formData.district_code);
+      setFormData((prev) => ({ ...prev, block_codes: [] }));
+    }
+  }, [formData.district_code]);
+
+  const loadStates = async () => {
+    if (!token) return;
+    setLoadingStates(true);
+    try {
+      const data = await locationApi.getStates(token);
+      setStates(data);
+    } catch (error) {
+      console.error('Error loading states:', error);
+    } finally {
+      setLoadingStates(false);
+    }
+  };
+
+  const loadDistricts = async (stateCode: string) => {
+    if (!token) return;
+    setLoadingDistricts(true);
+    try {
+      const data = await locationApi.getDistricts(token, stateCode);
+      setDistricts(data);
+    } catch (error) {
+      console.error('Error loading districts:', error);
+    } finally {
+      setLoadingDistricts(false);
+    }
+  };
+
+  const loadBlocks = async (stateCode: string, districtCode: string) => {
+    if (!token) return;
+    setLoadingBlocks(true);
+    try {
+      const data = await locationApi.getBlocks(token, stateCode, districtCode);
+      setBlocks(data);
+    } catch (error) {
+      console.error('Error loading blocks:', error);
+    } finally {
+      setLoadingBlocks(false);
+    }
+  };
+
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
       [name]: value,
+    }));
+  };
+
+  const handleBlockToggle = (blockCode: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      block_codes: prev.block_codes.includes(blockCode)
+        ? prev.block_codes.filter((code) => code !== blockCode)
+        : [...prev.block_codes, blockCode],
+    }));
+  };
+
+  const removeBlock = (blockCode: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      block_codes: prev.block_codes.filter((code) => code !== blockCode),
     }));
   };
 
@@ -55,12 +140,7 @@ export const AddSupervisorPage = () => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          ...formData,
-          block_codes: formData.block_codes
-            ? formData.block_codes.split(',').map((s) => s.trim()).filter(Boolean)
-            : [],
-        }),
+        body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
@@ -81,8 +161,10 @@ export const AddSupervisorPage = () => {
         phone_number: '',
         state_code: '',
         district_code: '',
-        block_codes: '',
+        block_codes: [],
       });
+      setDistricts([]);
+      setBlocks([]);
 
       setTimeout(() => {
         setMessage(null);
@@ -109,9 +191,11 @@ export const AddSupervisorPage = () => {
       phone_number: '',
       state_code: '',
       district_code: '',
-      block_codes: '',
+      block_codes: [],
     });
     setMessage(null);
+    setDistricts([]);
+    setBlocks([]);
   };
 
   return (
@@ -148,115 +232,224 @@ export const AddSupervisorPage = () => {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 max-w-2xl">
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Full Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              name="full_name"
-              value={formData.full_name}
-              onChange={handleInputChange}
-              placeholder="Enter full name"
-              required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 max-w-3xl">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg p-4 border border-blue-100">
+            <h3 className="text-sm font-semibold text-blue-900 flex items-center gap-2">
+              <User className="w-4 h-4" />
+              Personal Information
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Full Name <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <User className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  name="full_name"
+                  value={formData.full_name}
+                  onChange={handleInputChange}
+                  placeholder="Enter full name"
+                  required
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email Address <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Mail className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  placeholder="supervisor@example.com"
+                  required
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Phone Number
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Phone className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="tel"
+                  name="phone_number"
+                  value={formData.phone_number}
+                  onChange={handleInputChange}
+                  placeholder="Enter phone number"
+                  maxLength={15}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Password <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Lock className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  placeholder="Enter secure password"
+                  required
+                  minLength={6}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Password must be at least 6 characters long
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg p-4 border border-blue-100">
+            <h3 className="text-sm font-semibold text-blue-900 flex items-center gap-2">
+              <MapPin className="w-4 h-4" />
+              Location Assignment
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                State
+              </label>
+              <select
+                name="state_code"
+                value={formData.state_code}
+                onChange={handleInputChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white"
+                disabled={loadingStates}
+              >
+                <option value="">
+                  {loadingStates ? 'Loading states...' : 'Select a state'}
+                </option>
+                {states.map((state) => (
+                  <option key={state.state_code} value={state.state_code}>
+                    {state.state_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                District
+              </label>
+              <select
+                name="district_code"
+                value={formData.district_code}
+                onChange={handleInputChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white disabled:bg-gray-100"
+                disabled={!formData.state_code || loadingDistricts}
+              >
+                <option value="">
+                  {loadingDistricts
+                    ? 'Loading districts...'
+                    : formData.state_code
+                    ? 'Select a district'
+                    : 'First select a state'}
+                </option>
+                {districts.map((district) => (
+                  <option key={district.district_code} value={district.district_code}>
+                    {district.district_name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Email Address <span className="text-red-500">*</span>
+              Blocks
             </label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              placeholder="supervisor@example.com"
-              required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Phone Number
-            </label>
-            <input
-              type="tel"
-              name="phone_number"
-              value={formData.phone_number}
-              onChange={handleInputChange}
-              placeholder="Enter phone number"
-              maxLength={15}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Password <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleInputChange}
-              placeholder="Enter secure password"
-              required
-              minLength={6}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Password must be at least 6 characters long
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              State Code
-            </label>
-            <input
-              type="text"
-              name="state_code"
-              value={formData.state_code}
-              onChange={handleInputChange}
-              placeholder="Enter state code"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              District Code
-            </label>
-            <input
-              type="text"
-              name="district_code"
-              value={formData.district_code}
-              onChange={handleInputChange}
-              placeholder="Enter district code"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Block Codes
-            </label>
-            <input
-              type="text"
-              name="block_codes"
-              value={formData.block_codes}
-              onChange={handleInputChange}
-              placeholder="Enter block codes (comma-separated)"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Enter multiple block codes separated by commas
-            </p>
+            {!formData.district_code ? (
+              <div className="text-sm text-gray-500 py-3 px-4 bg-gray-50 rounded-lg border border-gray-200">
+                Please select a state and district first
+              </div>
+            ) : loadingBlocks ? (
+              <div className="flex items-center gap-2 text-sm text-gray-500 py-3">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading blocks...
+              </div>
+            ) : blocks.length === 0 ? (
+              <div className="text-sm text-gray-500 py-3 px-4 bg-gray-50 rounded-lg border border-gray-200">
+                No blocks available for this district
+              </div>
+            ) : (
+              <>
+                <div className="border border-gray-300 rounded-lg p-4 bg-gray-50 max-h-60 overflow-y-auto">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {blocks.map((block) => (
+                      <label
+                        key={block.block_code}
+                        className="flex items-center gap-2 p-2 hover:bg-white rounded cursor-pointer transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={formData.block_codes.includes(block.block_code)}
+                          onChange={() => handleBlockToggle(block.block_code)}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-700">{block.block_name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                {formData.block_codes.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-xs font-medium text-gray-600 mb-2">
+                      Selected Blocks ({formData.block_codes.length})
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {formData.block_codes.map((code) => {
+                        const block = blocks.find((b) => b.block_code === code);
+                        return (
+                          <span
+                            key={code}
+                            className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium"
+                          >
+                            {block?.block_name}
+                            <button
+                              type="button"
+                              onClick={() => removeBlock(code)}
+                              className="hover:bg-blue-200 rounded-full p-0.5 transition-colors"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           <div className="flex gap-3 pt-4">
