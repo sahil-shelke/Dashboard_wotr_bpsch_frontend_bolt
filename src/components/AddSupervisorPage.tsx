@@ -3,25 +3,17 @@ import { useAuth } from '../contexts/AuthContext';
 import { Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 
 interface SupervisorFormData {
-  full_name: string;
+  name: string;
   email: string;
   password: string;
-  phone_number: string;
-  state_code: string;
-  district_code: string;
-  block_codes: string;
 }
 
 export const AddSupervisorPage = () => {
   const { token } = useAuth();
   const [formData, setFormData] = useState<SupervisorFormData>({
-    full_name: '',
+    name: '',
     email: '',
     password: '',
-    phone_number: '',
-    state_code: '',
-    district_code: '',
-    block_codes: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<{
@@ -55,12 +47,7 @@ export const AddSupervisorPage = () => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          ...formData,
-          block_codes: formData.block_codes
-            ? formData.block_codes.split(',').map((s) => s.trim()).filter(Boolean)
-            : [],
-        }),
+        body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
@@ -75,13 +62,9 @@ export const AddSupervisorPage = () => {
       });
 
       setFormData({
-        full_name: '',
+        name: '',
         email: '',
         password: '',
-        phone_number: '',
-        state_code: '',
-        district_code: '',
-        block_codes: '',
       });
 
       setTimeout(() => {
@@ -103,13 +86,9 @@ export const AddSupervisorPage = () => {
 
   const handleReset = () => {
     setFormData({
-      full_name: '',
+      name: '',
       email: '',
       password: '',
-      phone_number: '',
-      state_code: '',
-      district_code: '',
-      block_codes: '',
     });
     setMessage(null);
   };
@@ -152,14 +131,14 @@ export const AddSupervisorPage = () => {
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Full Name <span className="text-red-500">*</span>
+              Name <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
-              name="full_name"
-              value={formData.full_name}
+              name="name"
+              value={formData.name}
               onChange={handleInputChange}
-              placeholder="Enter full name"
+              placeholder="Enter name"
               required
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
@@ -182,21 +161,6 @@ export const AddSupervisorPage = () => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Phone Number
-            </label>
-            <input
-              type="tel"
-              name="phone_number"
-              value={formData.phone_number}
-              onChange={handleInputChange}
-              placeholder="Enter phone number"
-              maxLength={15}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
               Password <span className="text-red-500">*</span>
             </label>
             <input
@@ -211,51 +175,6 @@ export const AddSupervisorPage = () => {
             />
             <p className="text-xs text-gray-500 mt-1">
               Password must be at least 6 characters long
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              State Code
-            </label>
-            <input
-              type="text"
-              name="state_code"
-              value={formData.state_code}
-              onChange={handleInputChange}
-              placeholder="Enter state code"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              District Code
-            </label>
-            <input
-              type="text"
-              name="district_code"
-              value={formData.district_code}
-              onChange={handleInputChange}
-              placeholder="Enter district code"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Block Codes
-            </label>
-            <input
-              type="text"
-              name="block_codes"
-              value={formData.block_codes}
-              onChange={handleInputChange}
-              placeholder="Enter block codes (comma-separated)"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Enter multiple block codes separated by commas
             </p>
           </div>
 
