@@ -164,13 +164,21 @@ export const AddSupervisorPage = () => {
     }
   };
 
-  const handleBlockChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedOptions = Array.from(e.target.selectedOptions);
-    const blockCodes = selectedOptions.map(option => option.value);
-    setFormData((prev) => ({
-      ...prev,
-      block_codes: blockCodes,
-    }));
+  const handleBlockChange = (blockCode: string, isChecked: boolean) => {
+    setFormData((prev) => {
+      const currentBlockCodes = prev.block_codes;
+      if (isChecked) {
+        return {
+          ...prev,
+          block_codes: [...currentBlockCodes, blockCode],
+        };
+      } else {
+        return {
+          ...prev,
+          block_codes: currentBlockCodes.filter(code => code !== blockCode),
+        };
+      }
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -181,6 +189,10 @@ export const AddSupervisorPage = () => {
     try {
       if (!token) {
         throw new Error('No authentication token found');
+      }
+
+      if (formData.block_codes.length === 0) {
+        throw new Error('Please select at least one block');
       }
 
       const response = await fetch('http://localhost:8000/api/users/create', {
@@ -400,33 +412,54 @@ export const AddSupervisorPage = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Block(s) <span className="text-red-500">*</span>
             </label>
-            <select
-              value={formData.block_codes}
-              onChange={handleBlockChange}
-              required
-              multiple
-              disabled={!formData.district_code || isLoadingBlocks}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed min-h-[120px]"
+            <div
+              className={`border border-gray-300 rounded-lg p-4 min-h-[120px] max-h-[240px] overflow-y-auto ${
+                !formData.district_code || isLoadingBlocks
+                  ? 'bg-gray-100 cursor-not-allowed'
+                  : 'bg-white'
+              }`}
             >
               {isLoadingBlocks ? (
-                <option disabled>Loading blocks...</option>
+                <div className="flex items-center justify-center py-8 text-gray-500">
+                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                  Loading blocks...
+                </div>
+              ) : !formData.district_code ? (
+                <p className="text-sm text-gray-500 text-center py-8">
+                  Please select a district first
+                </p>
               ) : blocks.length === 0 ? (
-                <option disabled>No blocks available</option>
+                <p className="text-sm text-gray-500 text-center py-8">
+                  No blocks available
+                </p>
               ) : (
-                blocks.map((block) => (
-                  <option key={block.block_code} value={block.block_code}>
-                    {block.block_name}
-                  </option>
-                ))
+                <div className="space-y-2">
+                  {blocks.map((block) => (
+                    <label
+                      key={block.block_code}
+                      className="flex items-center p-2 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        value={block.block_code}
+                        checked={formData.block_codes.includes(block.block_code)}
+                        onChange={(e) =>
+                          handleBlockChange(block.block_code, e.target.checked)
+                        }
+                        disabled={!formData.district_code || isLoadingBlocks}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                      />
+                      <span className="ml-3 text-sm text-gray-700">
+                        {block.block_name}
+                      </span>
+                    </label>
+                  ))}
+                </div>
               )}
-            </select>
-            {!formData.district_code ? (
+            </div>
+            {formData.district_code && blocks.length > 0 && (
               <p className="text-xs text-gray-500 mt-1">
-                Please select a district first
-              </p>
-            ) : (
-              <p className="text-xs text-gray-500 mt-1">
-                Hold Ctrl (Cmd on Mac) to select multiple blocks
+                {formData.block_codes.length} block(s) selected
               </p>
             )}
           </div>
