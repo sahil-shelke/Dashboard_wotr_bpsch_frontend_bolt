@@ -3,23 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Sidebar } from './Sidebar';
 import { VillageApprovalCard } from './VillageApprovalCard';
 import { AddSurveyorPage } from './AddSurveyorPage';
-import {
-  Droplets,
-  LogOut,
-  MapPin,
-  ClipboardCheck,
-  TrendingUp,
-  AlertTriangle,
-  CheckCircle,
-  LayoutDashboard,
-  UserPlus,
-  Loader2,
-  ArrowLeft,
-  FileText,
-  Edit3,
-  Save,
-  X,
-} from 'lucide-react';
+import { Droplets, LogOut, MapPin, ClipboardCheck, TrendingUp, AlertTriangle, CheckCircle, LayoutDashboard, UserPlus, Loader2, ArrowLeft, FileText, CreditCard as Edit3, Save, X } from 'lucide-react';
 
 interface UnapprovedVillage {
   village_profile_id: number;
@@ -52,6 +36,7 @@ interface VillageDetail {
 
 interface EditedResponse {
   question_id: number;
+  module_id: number;
   answer_id: number | null;
   other_answer: string;
 }
@@ -305,6 +290,7 @@ const VillageDetailsView = ({
   onClose: () => void;
   groupByModule: (details: VillageDetail[]) => { [key: string]: VillageDetail[] };
 }) => {
+  const { user } = useAuth();
   const [isEditMode, setIsEditMode] = useState(false);
   const [editedResponses, setEditedResponses] = useState<{
     [key: number]: EditedResponse;
@@ -317,26 +303,28 @@ const VillageDetailsView = ({
   const [isApproving, setIsApproving] = useState(false);
   const groupedDetails = groupByModule(details);
 
-  const handleAnswerSelect = (questionId: number, answerId: number) => {
+  const handleAnswerSelect = (questionId: number, answerId: number, moduleId: number) => {
     if (!isEditMode) return;
 
     setEditedResponses((prev) => ({
       ...prev,
       [questionId]: {
         question_id: questionId,
+        module_id: moduleId,
         answer_id: answerId,
         other_answer: prev[questionId]?.other_answer || '',
       },
     }));
   };
 
-  const handleOtherAnswerChange = (questionId: number, value: string) => {
+  const handleOtherAnswerChange = (questionId: number, value: string, moduleId: number) => {
     if (!isEditMode) return;
 
     setEditedResponses((prev) => ({
       ...prev,
       [questionId]: {
         question_id: questionId,
+        module_id: moduleId,
         answer_id: prev[questionId]?.answer_id || null,
         other_answer: value,
       },
@@ -348,34 +336,32 @@ const VillageDetailsView = ({
     setSaveMessage(null);
 
     try {
-      const responses = Object.values(editedResponses);
+      const responses = Object.values(editedResponses).map(response => ({
+        module_id: response.module_id,
+        question_id: response.question_id,
+        answer_id: response.answer_id || 0,
+        other_answer: response.other_answer,
+      }));
 
-      for (const response of responses) {
-        const payload = {
-          id: 0,
-          user_id: 0,
-          module_id: 0,
-          question_id: response.question_id,
-          answer_id: response.answer_id || 0,
-          village_profile_id: village.village_profile_id,
-          other_answer: response.other_answer,
-          response_time: new Date().toISOString(),
-        };
+      const payload = {
+        user_id: user?.user_id || 0,
+        village_profile_id: village.village_profile_id,
+        responses: responses,
+      };
 
-        const apiResponse = await fetch(
-          'http://localhost:8000/api/response/edit/response',
-          {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload),
-          }
-        );
-
-        if (!apiResponse.ok) {
-          throw new Error('Failed to save changes');
+      const apiResponse = await fetch(
+        'http://localhost:8000/api/response/edit/response',
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
         }
+      );
+
+      if (!apiResponse.ok) {
+        throw new Error('Failed to save changes');
       }
 
       setSaveMessage({ type: 'success', text: 'Changes saved successfully!' });
@@ -638,7 +624,8 @@ const VillageDetailsView = ({
                                 onClick={() =>
                                   handleAnswerSelect(
                                     question.question_id,
-                                    answer.answer_id
+                                    answer.answer_id,
+                                    question.module_id
                                   )
                                 }
                                 className={`flex items-start gap-3 p-4 rounded-lg transition-all ${
@@ -705,7 +692,8 @@ const VillageDetailsView = ({
                                 onChange={(e) =>
                                   handleOtherAnswerChange(
                                     question.question_id,
-                                    e.target.value
+                                    e.target.value,
+                                    question.module_id
                                   )
                                 }
                                 rows={3}
