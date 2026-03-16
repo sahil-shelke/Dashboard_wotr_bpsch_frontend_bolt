@@ -1,25 +1,126 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 
 interface SupervisorFormData {
-  name: string;
+  full_name: string;
   email: string;
   password: string;
+  phone_number: string;
+  state_code: string;
+  district_code: string;
+  block_codes: string[];
+}
+
+interface State {
+  state_code: string;
+  state_name: string;
+}
+
+interface District {
+  district_code: string;
+  district_name: string;
+}
+
+interface Block {
+  block_code: string;
+  block_name: string;
 }
 
 export const AddSupervisorPage = () => {
   const { token } = useAuth();
   const [formData, setFormData] = useState<SupervisorFormData>({
-    name: '',
+    full_name: '',
     email: '',
     password: '',
+    phone_number: '',
+    state_code: '',
+    district_code: '',
+    block_codes: [],
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<{
     type: 'success' | 'error';
     text: string;
   } | null>(null);
+
+  const [states, setStates] = useState<State[]>([]);
+  const [districts, setDistricts] = useState<District[]>([]);
+  const [blocks, setBlocks] = useState<Block[]>([]);
+  const [isLoadingStates, setIsLoadingStates] = useState(false);
+  const [isLoadingDistricts, setIsLoadingDistricts] = useState(false);
+  const [isLoadingBlocks, setIsLoadingBlocks] = useState(false);
+
+  useEffect(() => {
+    fetchStates();
+  }, []);
+
+  const fetchStates = async () => {
+    setIsLoadingStates(true);
+    try {
+      const response = await fetch('http://localhost:8000/api/location/states?language_id=1');
+      if (!response.ok) {
+        throw new Error('Failed to fetch states');
+      }
+      const data = await response.json();
+      setStates(data);
+    } catch (error) {
+      console.error('Error fetching states:', error);
+      setMessage({
+        type: 'error',
+        text: 'Failed to load states. Please refresh the page.',
+      });
+    } finally {
+      setIsLoadingStates(false);
+    }
+  };
+
+  const fetchDistricts = async (stateCode: string) => {
+    setIsLoadingDistricts(true);
+    setDistricts([]);
+    setBlocks([]);
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/location/districts?language_id=1&state_code=${stateCode}`
+      );
+      if (!response.ok) {
+        throw new Error('Failed to fetch districts');
+      }
+      const data = await response.json();
+      setDistricts(data);
+    } catch (error) {
+      console.error('Error fetching districts:', error);
+      setMessage({
+        type: 'error',
+        text: 'Failed to load districts. Please try again.',
+      });
+    } finally {
+      setIsLoadingDistricts(false);
+    }
+  };
+
+  const fetchBlocks = async (stateCode: string, districtCode: string) => {
+    setIsLoadingBlocks(true);
+    setBlocks([]);
+    try {
+      const response = await fetch(
+        `http://localhost:8000/api/location/blocks?language_id=1&state_code=${stateCode}&district_code=${districtCode}`
+      );
+      if (!response.ok) {
+        throw new Error('Failed to fetch blocks');
+      }
+      const data = await response.json();
+      setBlocks(data);
+    } catch (error) {
+      console.error('Error fetching blocks:', error);
+      setMessage({
+        type: 'error',
+        text: 'Failed to load blocks. Please try again.',
+      });
+    } finally {
+      setIsLoadingBlocks(false);
+    }
+  };
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement>
@@ -28,6 +129,47 @@ export const AddSupervisorPage = () => {
     setFormData((prev) => ({
       ...prev,
       [name]: value,
+    }));
+  };
+
+  const handleStateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const stateCode = e.target.value;
+    setFormData((prev) => ({
+      ...prev,
+      state_code: stateCode,
+      district_code: '',
+      block_codes: [],
+    }));
+
+    if (stateCode) {
+      fetchDistricts(stateCode);
+    } else {
+      setDistricts([]);
+      setBlocks([]);
+    }
+  };
+
+  const handleDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const districtCode = e.target.value;
+    setFormData((prev) => ({
+      ...prev,
+      district_code: districtCode,
+      block_codes: [],
+    }));
+
+    if (districtCode && formData.state_code) {
+      fetchBlocks(formData.state_code, districtCode);
+    } else {
+      setBlocks([]);
+    }
+  };
+
+  const handleBlockChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedOptions = Array.from(e.target.selectedOptions);
+    const blockCodes = selectedOptions.map(option => option.value);
+    setFormData((prev) => ({
+      ...prev,
+      block_codes: blockCodes,
     }));
   };
 
@@ -62,10 +204,16 @@ export const AddSupervisorPage = () => {
       });
 
       setFormData({
-        name: '',
+        full_name: '',
         email: '',
         password: '',
+        phone_number: '',
+        state_code: '',
+        district_code: '',
+        block_codes: [],
       });
+      setDistricts([]);
+      setBlocks([]);
 
       setTimeout(() => {
         setMessage(null);
@@ -86,10 +234,16 @@ export const AddSupervisorPage = () => {
 
   const handleReset = () => {
     setFormData({
-      name: '',
+      full_name: '',
       email: '',
       password: '',
+      phone_number: '',
+      state_code: '',
+      district_code: '',
+      block_codes: [],
     });
+    setDistricts([]);
+    setBlocks([]);
     setMessage(null);
   };
 
@@ -131,14 +285,14 @@ export const AddSupervisorPage = () => {
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Name <span className="text-red-500">*</span>
+              Full Name <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
-              name="name"
-              value={formData.name}
+              name="full_name"
+              value={formData.full_name}
               onChange={handleInputChange}
-              placeholder="Enter name"
+              placeholder="Enter full name"
               required
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
@@ -161,6 +315,21 @@ export const AddSupervisorPage = () => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
+              Phone Number <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="tel"
+              name="phone_number"
+              value={formData.phone_number}
+              onChange={handleInputChange}
+              placeholder="Enter phone number"
+              required
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Password <span className="text-red-500">*</span>
             </label>
             <input
@@ -176,6 +345,90 @@ export const AddSupervisorPage = () => {
             <p className="text-xs text-gray-500 mt-1">
               Password must be at least 6 characters long
             </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              State <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={formData.state_code}
+              onChange={handleStateChange}
+              required
+              disabled={isLoadingStates}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            >
+              <option value="">
+                {isLoadingStates ? 'Loading states...' : 'Select State'}
+              </option>
+              {states.map((state) => (
+                <option key={state.state_code} value={state.state_code}>
+                  {state.state_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              District <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={formData.district_code}
+              onChange={handleDistrictChange}
+              required
+              disabled={!formData.state_code || isLoadingDistricts}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            >
+              <option value="">
+                {isLoadingDistricts ? 'Loading districts...' : 'Select District'}
+              </option>
+              {districts.map((district) => (
+                <option key={district.district_code} value={district.district_code}>
+                  {district.district_name}
+                </option>
+              ))}
+            </select>
+            {!formData.state_code && (
+              <p className="text-xs text-gray-500 mt-1">
+                Please select a state first
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Block(s) <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={formData.block_codes}
+              onChange={handleBlockChange}
+              required
+              multiple
+              disabled={!formData.district_code || isLoadingBlocks}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed min-h-[120px]"
+            >
+              {isLoadingBlocks ? (
+                <option disabled>Loading blocks...</option>
+              ) : blocks.length === 0 ? (
+                <option disabled>No blocks available</option>
+              ) : (
+                blocks.map((block) => (
+                  <option key={block.block_code} value={block.block_code}>
+                    {block.block_name}
+                  </option>
+                ))
+              )}
+            </select>
+            {!formData.district_code ? (
+              <p className="text-xs text-gray-500 mt-1">
+                Please select a district first
+              </p>
+            ) : (
+              <p className="text-xs text-gray-500 mt-1">
+                Hold Ctrl (Cmd on Mac) to select multiple blocks
+              </p>
+            )}
           </div>
 
           <div className="flex gap-3 pt-4">
