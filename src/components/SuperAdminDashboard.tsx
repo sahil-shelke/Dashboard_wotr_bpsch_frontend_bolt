@@ -122,25 +122,19 @@ const DashboardView = () => {
       try {
         setIsLoading(true);
 
-        const [statesRes, districtsRes, blocksRes, villagesRes] = await Promise.all([
-          fetch('http://localhost:8000/api/location/states?language_id=1'),
-          fetch('http://localhost:8000/api/location/districts?language_id=1'),
-          fetch('http://localhost:8000/api/location/blocks?language_id=1'),
-          fetch('http://localhost:8000/api/location/villages?language_id=1'),
-        ]);
+        const response = await fetch('http://localhost:8000/api/location/location-counts?language_id=1');
 
-        const [states, districts, blocks, villages] = await Promise.all([
-          statesRes.ok ? statesRes.json() : [],
-          districtsRes.ok ? districtsRes.json() : [],
-          blocksRes.ok ? blocksRes.json() : [],
-          villagesRes.ok ? villagesRes.json() : [],
-        ]);
+        if (!response.ok) {
+          throw new Error('Failed to fetch location counts');
+        }
+
+        const data = await response.json();
 
         setStats({
-          states: Array.isArray(states) ? states.length : 0,
-          districts: Array.isArray(districts) ? districts.length : 0,
-          blocks: Array.isArray(blocks) ? blocks.length : 0,
-          villages: Array.isArray(villages) ? villages.length : 0,
+          states: data.state_count || 0,
+          districts: data.district_count || 0,
+          blocks: data.block_count || 0,
+          villages: data.village_count || 0,
         });
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
