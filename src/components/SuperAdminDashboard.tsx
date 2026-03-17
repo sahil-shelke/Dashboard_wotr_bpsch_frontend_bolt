@@ -121,31 +121,35 @@ const DashboardView = () => {
     const fetchDashboardData = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch('http://localhost:8000/api/response/approved_villages');
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch data');
-        }
+        const [statesRes, districtsRes, blocksRes, villagesRes] = await Promise.all([
+          fetch('http://localhost:8000/api/location/states?language_id=1'),
+          fetch('http://localhost:8000/api/location/districts?language_id=1'),
+          fetch('http://localhost:8000/api/location/blocks?language_id=1'),
+          fetch('http://localhost:8000/api/location/villages?language_id=1'),
+        ]);
 
-        const data = await response.json();
-
-        const uniqueVillages = data.filter(
-          (village: VillageData, index: number, self: VillageData[]) =>
-            index === self.findIndex((v: VillageData) => v.village_profile_id === village.village_profile_id)
-        );
-
-        const uniqueStates = new Set(data.map((v: VillageData) => v.state_name));
-        const uniqueDistricts = new Set(data.map((v: VillageData) => v.district_name));
-        const uniqueBlocks = new Set(data.map((v: VillageData) => v.block_name));
+        const [states, districts, blocks, villages] = await Promise.all([
+          statesRes.ok ? statesRes.json() : [],
+          districtsRes.ok ? districtsRes.json() : [],
+          blocksRes.ok ? blocksRes.json() : [],
+          villagesRes.ok ? villagesRes.json() : [],
+        ]);
 
         setStats({
-          states: uniqueStates.size,
-          districts: uniqueDistricts.size,
-          blocks: uniqueBlocks.size,
-          villages: uniqueVillages.length,
+          states: Array.isArray(states) ? states.length : 0,
+          districts: Array.isArray(districts) ? districts.length : 0,
+          blocks: Array.isArray(blocks) ? blocks.length : 0,
+          villages: Array.isArray(villages) ? villages.length : 0,
         });
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
+        setStats({
+          states: 0,
+          districts: 0,
+          blocks: 0,
+          villages: 0,
+        });
       } finally {
         setIsLoading(false);
       }
