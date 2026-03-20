@@ -1,5 +1,5 @@
 import { useState, FormEvent } from 'react';
-import { Lock, Mail, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export const LoginPage = () => {
@@ -24,92 +24,77 @@ export const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        <div className="flex items-center justify-center mb-6">
-          <img src="/w-cres.png" alt="W-CReS" className="h-10 object-contain" />
+    <div className="min-h-screen bg-[#e6d5c3] flex items-center justify-center px-4">
+      <div className="w-full max-w-md bg-white rounded-xl shadow-md p-8">
+        <div className="flex items-center justify-center gap-6 mb-4">
+          <img src="/wotr.png" alt="WOTR" className="h-12 object-contain" />
+          <div className="w-px h-10 bg-gray-300"></div>
+          <img src="/w-cres.png" alt="W-CReS" className="h-12 object-contain" />
         </div>
 
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-semibold text-gray-900">
-            Water Governance Standard
-          </h1>
-          <p className="text-sm text-gray-500 mt-2">
-            Village Water Efficiency & Sustainability Platform
-          </p>
-        </div>
+        <h1 className="text-xl font-semibold text-center mb-6">
+          NFPP Dashboard
+        </h1>
 
-        <div className="w-full bg-white rounded-2xl shadow-md p-8">
-          {error && (
-            <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3.5 flex items-start gap-3">
-              <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-red-700">{error}</p>
-            </div>
-          )}
+        {error && (
+          <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3.5 flex items-start gap-3">
+            <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
+        )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700 mb-1.5"
-              >
-                Email
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                  <Mail className="h-4 w-4 text-gray-400" />
-                </div>
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@company.com"
-                  className="block w-full h-11 pl-10 pr-3.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow placeholder:text-gray-400"
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700 mb-1.5"
-              >
-                Password
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                  <Lock className="h-4 w-4 text-gray-400" />
-                </div>
-                <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  className="block w-full h-11 pl-10 pr-3.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow placeholder:text-gray-400"
-                  required
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full h-11 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-gray-700 mb-1.5"
             >
-              {isLoading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                  Signing in...
-                </span>
-              ) : (
-                'Sign in'
-              )}
-            </button>
-          </form>
-        </div>
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="yourname@wotr.org.in"
+              className="block w-full h-11 px-3 text-sm border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent placeholder:text-gray-400"
+              required
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700 mb-1.5"
+            >
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter password"
+              className="block w-full h-11 px-3 text-sm border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent placeholder:text-gray-400"
+              required
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full h-11 bg-gray-700 text-white text-sm font-medium rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+          >
+            {isLoading ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                Signing in...
+              </span>
+            ) : (
+              'Sign in'
+            )}
+          </button>
+        </form>
       </div>
     </div>
   );
