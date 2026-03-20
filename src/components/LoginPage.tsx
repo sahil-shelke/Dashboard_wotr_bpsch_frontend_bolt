@@ -28,8 +28,12 @@ export const LoginPage = () => {
       <div className="w-full max-w-md">
         {/* Logo and Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-2xl shadow-lg mb-4">
-            <Droplets className="w-10 h-10 text-white" />
+          <div className="flex justify-center mb-6">
+            <img
+              src="/w-cres.png"
+              alt="Water Governance Standard Logo"
+              className="h-24 w-auto sm:h-28 md:h-32 object-contain"
+            />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             Water Governance Standard
