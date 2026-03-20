@@ -25,22 +25,22 @@ export const LoginPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-md mx-auto flex flex-col items-center">
         <div className="flex items-center justify-center gap-6 mb-6">
           <img
             src="/w-cres.png"
             alt="W-CReS"
-            className="h-12 object-contain"
+            className="h-10 object-contain"
           />
-          <div className="h-12 w-px bg-gray-300"></div>
+          <div className="h-10 w-px bg-gray-300"></div>
           <img
             src="/w-cres.png"
             alt="WOTR"
-            className="h-12 object-contain"
+            className="h-10 object-contain"
           />
         </div>
 
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
           <h1 className="text-2xl font-semibold text-gray-900">
             Water Governance Standard
           </h1>
@@ -49,9 +49,9 @@ export const LoginPage = () => {
           </p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-md p-8">
+        <div className="w-full bg-white rounded-2xl shadow-md p-6">
           {error && (
-            <div className="mb-5 bg-red-50 border border-red-200 rounded-lg p-3.5 flex items-start gap-3">
+            <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3.5 flex items-start gap-3">
               <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
               <p className="text-sm text-red-700">{error}</p>
             </div>
