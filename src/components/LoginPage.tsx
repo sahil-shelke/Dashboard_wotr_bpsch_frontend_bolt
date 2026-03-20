@@ -26,14 +26,12 @@ export const LoginPage = () => {
   return (
     <div className="min-h-screen bg-[#0f5c4d] flex items-center justify-center px-4">
       <div className="w-full max-w-md bg-white rounded-xl shadow-md p-8">
-        <div className="flex items-center justify-center gap-6 mb-4 bg-white px-4 py-2 rounded-lg">
-          <img src="/wotr.png" alt="WOTR" className="h-12 object-contain" />
-          <div className="w-px h-10 bg-gray-300"></div>
-          <img src="/w-cres.png" alt="W-CReS" className="h-12 object-contain" />
+        <div className="flex items-center justify-center mb-4">
+          <img src="/wotr.png" alt="WOTR" className="h-16 object-contain" />
         </div>
 
         <h1 className="text-xl font-semibold text-center mb-6">
-          NFPP Dashboard
+          Water Governance Standard
         </h1>
 
         {error && (
