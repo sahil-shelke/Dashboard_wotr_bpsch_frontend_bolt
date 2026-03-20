@@ -24,44 +24,40 @@ export const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 sm:px-6 lg:px-8">
-      <div className="w-full max-w-[440px]">
-        {/* Logo and Header */}
-        <div className="text-center mb-10">
-          <div className="flex justify-center mb-8">
-            <img
-              src="/w-cres.png"
-              alt="Water Governance Standard"
-              className="h-20 w-auto object-contain"
-            />
-          </div>
-          <h1 className="text-2xl font-semibold text-gray-900 mb-2 tracking-tight">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="w-full max-w-md">
+        <div className="flex items-center justify-center gap-6 mb-6">
+          <img
+            src="/w-cres.png"
+            alt="W-CReS"
+            className="h-12 object-contain"
+          />
+          <div className="h-12 w-px bg-gray-300"></div>
+          <img
+            src="/w-cres.png"
+            alt="WOTR"
+            className="h-12 object-contain"
+          />
+        </div>
+
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-semibold text-gray-900">
             Water Governance Standard
           </h1>
-          <p className="text-sm text-gray-500 leading-relaxed">
+          <p className="text-sm text-gray-500 mt-2">
             Village Water Efficiency & Sustainability Platform
           </p>
         </div>
 
-        {/* Login Card */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-1">
-              Sign in to your account
-            </h2>
-            <p className="text-sm text-gray-500">
-              Welcome back! Please enter your details
-            </p>
-          </div>
-
+        <div className="bg-white rounded-2xl shadow-md p-8">
           {error && (
-            <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-3.5 flex items-start gap-3">
+            <div className="mb-5 bg-red-50 border border-red-200 rounded-lg p-3.5 flex items-start gap-3">
               <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-red-700 leading-snug">{error}</p>
+              <p className="text-sm text-red-700">{error}</p>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label
                 htmlFor="email"
@@ -78,8 +74,7 @@ export const LoginPage = () => {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full pl-10 pr-3.5 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow placeholder:text-gray-400"
-                  placeholder="demo1@example.com"
+                  className="block w-full h-11 pl-10 pr-3.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
                   required
                 />
               </div>
@@ -101,8 +96,7 @@ export const LoginPage = () => {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full pl-10 pr-3.5 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow placeholder:text-gray-400"
-                  placeholder="Enter your password"
+                  className="block w-full h-11 pl-10 pr-3.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
                   required
                 />
               </div>
@@ -111,7 +105,7 @@ export const LoginPage = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-blue-600 text-white text-sm font-medium py-2.5 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full h-11 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -124,10 +118,6 @@ export const LoginPage = () => {
             </button>
           </form>
         </div>
-
-        <p className="text-center text-xs text-gray-500 mt-8">
-          Promoting sustainable water management practices
-        </p>
       </div>
     </div>
   );
