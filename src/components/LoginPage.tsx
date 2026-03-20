@@ -27,15 +27,13 @@ export const LoginPage = () => {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="w-full max-w-md mx-auto flex flex-col items-center">
         <div className="flex items-center justify-center gap-6 mb-6">
-          <img
-            src="/w-cres.png"
-            alt="W-CReS"
-            className="h-10 object-contain"
-          />
+          <div className="h-10 w-16 bg-gray-200 rounded flex items-center justify-center text-xs font-semibold text-gray-600">
+            WOTR
+          </div>
           <div className="h-10 w-px bg-gray-300"></div>
           <img
             src="/w-cres.png"
-            alt="WOTR"
+            alt="W-CReS"
             className="h-10 object-contain"
           />
         </div>
@@ -74,7 +72,8 @@ export const LoginPage = () => {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full h-11 pl-10 pr-3.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                  placeholder="name@company.com"
+                  className="block w-full h-11 pl-10 pr-3.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow placeholder:text-gray-400"
                   required
                 />
               </div>
