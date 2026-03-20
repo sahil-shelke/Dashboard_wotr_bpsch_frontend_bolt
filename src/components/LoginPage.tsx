@@ -123,16 +123,6 @@ export const LoginPage = () => {
               )}
             </button>
           </form>
-
-          <div className="mt-6 pt-6 border-t border-gray-100">
-            <div className="bg-gray-50 rounded-lg p-4">
-              <p className="text-xs font-medium text-gray-700 mb-2">Demo Credentials</p>
-              <div className="text-xs text-gray-600 space-y-1">
-                <p className="font-mono">demo1@example.com</p>
-                <p className="font-mono">password</p>
-              </div>
-            </div>
-          </div>
         </div>
 
         <p className="text-center text-xs text-gray-500 mt-8">
