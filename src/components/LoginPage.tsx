@@ -25,17 +25,11 @@ export const LoginPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-md mx-auto flex flex-col items-center">
+      <div className="w-full max-w-md">
         <div className="flex items-center justify-center gap-6 mb-6">
-          <div className="h-10 w-16 bg-gray-200 rounded flex items-center justify-center text-xs font-semibold text-gray-600">
-            WOTR
-          </div>
-          <div className="h-10 w-px bg-gray-300"></div>
-          <img
-            src="/w-cres.png"
-            alt="W-CReS"
-            className="h-10 object-contain"
-          />
+          <img src="/wotr.png" alt="WOTR" className="h-10 object-contain" />
+          <div className="w-px h-8 bg-gray-300"></div>
+          <img src="/w-cres.png" alt="W-CReS" className="h-10 object-contain" />
         </div>
 
         <div className="text-center mb-6">
@@ -47,7 +41,7 @@ export const LoginPage = () => {
           </p>
         </div>
 
-        <div className="w-full bg-white rounded-2xl shadow-md p-6">
+        <div className="w-full bg-white rounded-2xl shadow-md p-8">
           {error && (
             <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3.5 flex items-start gap-3">
               <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
@@ -95,7 +89,8 @@ export const LoginPage = () => {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full h-11 pl-10 pr-3.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                  placeholder="Enter your password"
+                  className="block w-full h-11 pl-10 pr-3.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow placeholder:text-gray-400"
                   required
                 />
               </div>
