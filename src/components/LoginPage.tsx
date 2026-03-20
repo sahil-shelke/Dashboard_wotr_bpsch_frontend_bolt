@@ -26,9 +26,7 @@ export const LoginPage = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        <div className="flex items-center justify-center gap-6 mb-6">
-          <img src="/wotr.png" alt="WOTR" className="h-10 object-contain" />
-          <div className="w-px h-8 bg-gray-300"></div>
+        <div className="flex items-center justify-center mb-6">
           <img src="/w-cres.png" alt="W-CReS" className="h-10 object-contain" />
         </div>
 
